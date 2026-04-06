@@ -1,12 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { SpecOutput, AnalysisConfig } from "../types/spec.js";
-import { generateProjectSpec } from "./project-spec.js";
-import { generateProjectRules } from "./project-rules.js";
 import { generatePageStructure } from "./page-structure.js";
 import { generateComponentSpecs } from "./component-specs.js";
 import { generateAiIntegration } from "./ai-integration.js";
-import { directoriesToMarkdown } from "../analyzers/directory-roles.js";
 
 export async function generateOutput(
   spec: SpecOutput,
@@ -19,19 +16,24 @@ export async function generateOutput(
   await fs.mkdir(path.join(outputDir, "pages"), { recursive: true });
   await fs.mkdir(path.join(outputDir, "components"), { recursive: true });
 
-  // Write manifest
-  await writeJson(path.join(outputDir, "manifest.json"), spec.manifest);
+  // Write single JSON index (for MCP server queries)
+  await writeJson(path.join(outputDir, "index.json"), {
+    manifest: spec.manifest,
+    framework: spec.project.framework,
+    routes: spec.pageTree.routes.map((r) => ({
+      path: r.path, file: r.filePath, isApi: r.isApiRoute, isDynamic: r.isDynamic,
+    })),
+    components: spec.components.map((c) => ({
+      name: c.name, file: c.filePath, type: c.type, propsCount: c.props.length,
+    })),
+    graph: spec.componentGraph,
+  });
 
-  // Generate all specs in parallel
+  // Generate MD specs (no duplicate JSON per component/page)
   await Promise.all([
-    generateProjectSpec(spec, outputDir, config),
-    generateProjectRules(spec, outputDir, config),
-    generatePageStructure(spec, outputDir, config),
-    generateComponentSpecs(spec, outputDir, config),
+    generatePageStructure(spec, outputDir, { ...config, format: "md" }),
+    generateComponentSpecs(spec, outputDir, { ...config, format: "md" }),
     generateAiIntegration(spec, config),
-    // Directory structure
-    writeJson(path.join(outputDir, "directories.json"), spec.directories),
-    writeMarkdown(path.join(outputDir, "directories.md"), directoriesToMarkdown(spec.directories)),
   ]);
 }
 
