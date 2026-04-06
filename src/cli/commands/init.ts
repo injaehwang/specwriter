@@ -11,6 +11,7 @@ export const initCommand = new Command("init")
   .option("--no-wireframes", "Skip wireframe generation")
   .option("--format <type>", "Output format: json, md, both", DEFAULT_CONFIG.format)
   .option("--ai-target <targets...>", "AI targets: claude, cursor", DEFAULT_CONFIG.aiTargets)
+  .option("--debug", "Debug mode — show all scan details", false)
   .action(async (targetPath: string, opts) => {
     const root = path.resolve(targetPath);
     const configPath = path.join(root, "specwriter.config.json");
@@ -74,6 +75,10 @@ export const initCommand = new Command("init")
       } catch {
         // Use defaults if config is invalid
       }
+    }
+
+    if (opts.debug) {
+      (analysisConfig as any)._debug = true;
     }
 
     await runAnalysis(analysisConfig, true);

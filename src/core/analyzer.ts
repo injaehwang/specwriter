@@ -32,6 +32,18 @@ export async function runAnalysis(
   verbose: boolean
 ): Promise<void> {
   const startTime = Date.now();
+  const debug = (config as any)._debug;
+
+  if (debug) {
+    console.log("  [DEBUG] === specwriter debug mode ===");
+    console.log(`  [DEBUG] config.root: ${config.root}`);
+    console.log(`  [DEBUG] config.output: ${config.output}`);
+    console.log(`  [DEBUG] config.framework: ${config.framework}`);
+    console.log(`  [DEBUG] config.exclude: ${JSON.stringify(config.exclude)}`);
+    console.log(`  [DEBUG] Node version: ${process.version}`);
+    console.log(`  [DEBUG] Platform: ${process.platform}`);
+    console.log("");
+  }
 
   // 1. Detect framework
   progress("Detecting framework...");
@@ -39,6 +51,12 @@ export async function runAnalysis(
   const frameworkId =
     config.framework !== "auto" ? (config.framework as any) : detection.frameworkId;
   progressDone(`Framework: ${frameworkId} (${(detection.confidence * 100).toFixed(0)}%)`);
+
+  if (debug) {
+    console.log(`  [DEBUG] Detection evidence:`);
+    for (const e of detection.evidence) console.log(`  [DEBUG]   - ${e}`);
+    console.log("");
+  }
 
   const adapter = getAdapter(frameworkId);
 
@@ -198,6 +216,7 @@ async function discoverSourceFiles(
   config: AnalysisConfig,
   _adapter: ReturnType<typeof getAdapter>
 ): Promise<string[]> {
+  const debug = (config as any)._debug;
   const files = new Set<string>();
 
   // Scan EVERYTHING — exclude only known non-source directories
@@ -232,6 +251,13 @@ async function discoverSourceFiles(
   ];
   const exclude = [...defaultExclude, ...config.exclude];
 
+  if (debug) {
+    console.log("\n  [DEBUG] === File Discovery ===");
+    console.log(`  [DEBUG] cwd: ${config.root}`);
+    console.log(`  [DEBUG] pattern: ${scanAll[0]}`);
+    console.log(`  [DEBUG] exclude count: ${exclude.length}`);
+  }
+
   for (const pattern of scanAll) {
     try {
       const matches = await glob(pattern, {
@@ -239,9 +265,31 @@ async function discoverSourceFiles(
         posix: true,
         ignore: exclude,
       });
+      if (debug) {
+        console.log(`  [DEBUG] glob returned ${matches.length} files`);
+        if (matches.length <= 20) {
+          for (const m of matches) console.log(`  [DEBUG]   ${m}`);
+        } else {
+          for (const m of matches.slice(0, 10)) console.log(`  [DEBUG]   ${m}`);
+          console.log(`  [DEBUG]   ... and ${matches.length - 10} more`);
+        }
+      }
       for (const m of matches) files.add(m);
-    } catch {
-      // Pattern failed
+    } catch (err) {
+      if (debug) console.log(`  [DEBUG] glob error: ${err}`);
+    }
+  }
+
+  if (debug && files.size === 0) {
+    // Emergency: try listing directory contents
+    console.log("  [DEBUG] === No files found! Listing root directory ===");
+    try {
+      const { readdir } = await import("node:fs/promises");
+      const entries = await readdir(config.root);
+      console.log(`  [DEBUG] Root contains ${entries.length} entries:`);
+      for (const e of entries.slice(0, 30)) console.log(`  [DEBUG]   ${e}`);
+    } catch (err) {
+      console.log(`  [DEBUG] Cannot read directory: ${err}`);
     }
   }
 
@@ -256,10 +304,12 @@ async function extractAllComponents(
   files: string[],
   onProgress: (done: number, total: number) => void
 ): Promise<ComponentInfo[]> {
+  const debug = (config as any)._debug;
   const components: ComponentInfo[] = [];
   const { extractAllComponentsFromFile } = await import("../parsers/typescript.js");
 
   let done = 0;
+  let skipped = 0;
   for (const file of files) {
     try {
       const content = await fs.readFile(path.join(config.root, file), "utf-8");
@@ -274,18 +324,32 @@ async function extractAllComponents(
         fileComponents = extractAllComponentsFromFile(path.join(config.root, file), content);
       }
 
+      if (debug && fileComponents.length > 0) {
+        console.log(`  [DEBUG] ${file} → ${fileComponents.length} components: ${fileComponents.map(c => c.name).join(", ")}`);
+      }
+      if (debug && fileComponents.length === 0) {
+        skipped++;
+      }
+
       for (const comp of fileComponents) {
         comp.filePath = file; // Relative path
         components.push(comp);
       }
-    } catch {
-      // Skip unparseable files
+    } catch (err) {
+      if (debug) {
+        console.log(`  [DEBUG] PARSE ERROR: ${file} → ${(err as Error).message}`);
+      }
     }
 
     done++;
     if (done % 20 === 0 || done === files.length) {
       onProgress(done, files.length);
     }
+  }
+
+  if (debug) {
+    console.log(`  [DEBUG] Total: ${components.length} components, ${skipped} files had no components`);
+    console.log("");
   }
 
   return components;

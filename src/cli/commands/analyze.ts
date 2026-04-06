@@ -15,6 +15,7 @@ export const analyzeCommand = new Command("analyze")
   .option("--format <type>", "Output format: json, md, both", DEFAULT_CONFIG.format)
   .option("--ai-target <mode>", "AI integration: auto (detect existing), none (skip)", "auto")
   .option("--verbose", "Verbose output", false)
+  .option("--debug", "Debug mode — show all scan details", false)
   .action(async (targetPath: string, opts) => {
     const root = path.resolve(targetPath);
 
@@ -37,6 +38,10 @@ export const analyzeCommand = new Command("analyze")
       format: opts.format,
       aiTargets: opts.aiTarget ?? DEFAULT_CONFIG.aiTargets,
     };
+
+    if (opts.debug) {
+      (config as any)._debug = true;
+    }
 
     await runAnalysis(config, opts.verbose);
   });
