@@ -196,47 +196,43 @@ export async function runAnalysis(
 
 async function discoverSourceFiles(
   config: AnalysisConfig,
-  adapter: ReturnType<typeof getAdapter>
+  _adapter: ReturnType<typeof getAdapter>
 ): Promise<string[]> {
   const files = new Set<string>();
 
-  // Adapter-specific patterns
-  const adapterGlobs = [...adapter.getComponentGlobs(), ...adapter.getPageGlobs()];
-
-  // Broad patterns to catch everything
-  const ext = "{tsx,jsx,ts,js,vue,svelte}";
-  const broadGlobs = [
-    `src/**/*.${ext}`,
-    `app/**/*.${ext}`,
-    `pages/**/*.${ext}`,
-    `components/**/*.${ext}`,
-    `lib/**/*.${ext}`,
-    `ui/**/*.${ext}`,
-    `modules/**/*.${ext}`,
-    `features/**/*.${ext}`,
-    `views/**/*.${ext}`,
-    `layouts/**/*.${ext}`,
-    `composables/**/*.${ext}`,
-    `stores/**/*.${ext}`,
-    `plugins/**/*.${ext}`,
-    `server/**/*.${ext}`,
-    // Monorepo packages
-    `packages/*/src/**/*.${ext}`,
-    `packages/*/app/**/*.${ext}`,
-    `apps/*/src/**/*.${ext}`,
-    `apps/*/app/**/*.${ext}`,
+  // Scan EVERYTHING — exclude only known non-source directories
+  const scanAll = [
+    "**/*.{tsx,jsx,ts,js,mjs,cjs,vue,svelte}",
   ];
 
-  const allGlobs = [...new Set([...adapterGlobs, ...broadGlobs])];
   const defaultExclude = [
-    "**/node_modules/**", "**/dist/**", "**/build/**", "**/.next/**",
-    "**/.nuxt/**", "**/.svelte-kit/**", "**/*.test.*", "**/*.spec.*",
-    "**/__tests__/**", "**/__mocks__/**", "**/stories/**", "**/*.stories.*",
-    "**/*.d.ts", "**/coverage/**",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/out/**",
+    "**/.next/**",
+    "**/.nuxt/**",
+    "**/.svelte-kit/**",
+    "**/.output/**",
+    "**/.vercel/**",
+    "**/.cache/**",
+    "**/.turbo/**",
+    "**/coverage/**",
+    "**/__tests__/**",
+    "**/__mocks__/**",
+    "**/*.test.*",
+    "**/*.spec.*",
+    "**/*.stories.*",
+    "**/stories/**",
+    "**/*.d.ts",
+    "**/*.min.js",
+    "**/*.bundle.js",
+    "**/public/**/*.js",
+    "**/static/**/*.js",
   ];
   const exclude = [...defaultExclude, ...config.exclude];
 
-  for (const pattern of allGlobs) {
+  for (const pattern of scanAll) {
     try {
       const matches = await glob(pattern, {
         cwd: config.root,
