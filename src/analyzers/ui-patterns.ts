@@ -3,162 +3,197 @@ import { ComponentInfo } from "../types/component.js";
 export interface UiPattern {
   name: string;
   description: string;
-  components: string[];
+  components: ComponentUsage[];
   hooks: string[];
   usage: string;
 }
 
+interface ComponentUsage {
+  name: string;
+  file: string;
+  props: string[];
+  usedByCount: number;
+}
+
 /**
- * Detect common UI patterns from component names, imports, and relationships
+ * Detect UI patterns from ACTUAL component analysis — not hardcoded categories.
+ *
+ * Strategy:
+ * 1. Build usage graph: who uses whom
+ * 2. Find components used by 3+ parents → these are shared UI primitives
+ * 3. Group related components by co-occurrence (used together in same parent)
+ * 4. Name patterns from component relationships, not string matching
  */
 export function detectUiPatterns(components: ComponentInfo[]): UiPattern[] {
-  const patterns: UiPattern[] = [];
-  const names = components.map((c) => c.name.toLowerCase());
-  const allImports = new Set<string>();
+  // Build usage map: componentName → list of parents using it
+  const usedBy = new Map<string, Set<string>>();
+  const compMap = new Map<string, ComponentInfo>();
   for (const c of components) {
-    for (const imp of c.imports) {
-      allImports.add(imp.source);
+    compMap.set(c.name, c);
+  }
+
+  for (const comp of components) {
+    for (const childName of comp.children) {
+      if (!usedBy.has(childName)) usedBy.set(childName, new Set());
+      usedBy.get(childName)!.add(comp.name);
+    }
+    for (const imp of comp.imports) {
       for (const spec of imp.specifiers) {
-        allImports.add(spec.toLowerCase());
+        if (/^[A-Z]/.test(spec) && spec !== comp.name && compMap.has(spec)) {
+          if (!usedBy.has(spec)) usedBy.set(spec, new Set());
+          usedBy.get(spec)!.add(comp.name);
+        }
       }
     }
   }
 
-  // ─── Modal / Dialog ───
-  const modalComps = components.filter((c) =>
-    /modal|dialog|popup|overlay|drawer/i.test(c.name)
-  );
-  const modalHooks = components.filter((c) =>
-    c.type === "hook" && /modal|dialog|drawer/i.test(c.name)
-  );
-  if (modalComps.length > 0) {
-    const hookNames = modalHooks.map((h) => h.name);
-    patterns.push({
-      name: "Modal / Dialog",
-      description: `${modalComps.length} modal component(s)`,
-      components: modalComps.map((c) => c.name),
-      hooks: hookNames,
-      usage: hookNames.length > 0
-        ? `const { open, close } = ${hookNames[0]}(); <${modalComps[0].name} isOpen={isOpen} onClose={close} />`
-        : `<${modalComps[0].name} isOpen={isOpen} onClose={onClose} />`,
-    });
-  }
+  const patterns: UiPattern[] = [];
 
-  // ─── Form ───
-  const formComps = components.filter((c) =>
-    /form|input|select|textarea|checkbox|radio|field/i.test(c.name)
-  );
-  const hasRHF = allImports.has("react-hook-form") || allImports.has("useform");
-  const hasFormik = allImports.has("formik") || allImports.has("useformik");
-  const hasZod = allImports.has("zod");
-  const hasYup = allImports.has("yup");
-  if (formComps.length > 0 || hasRHF || hasFormik) {
-    const lib = hasRHF ? "react-hook-form" : hasFormik ? "formik" : "native forms";
-    const validator = hasZod ? " + zod" : hasYup ? " + yup" : "";
-    patterns.push({
-      name: "Forms",
-      description: `${formComps.length} form component(s), ${lib}${validator}`,
-      components: formComps.slice(0, 5).map((c) => c.name),
-      hooks: hasRHF ? ["useForm"] : hasFormik ? ["useFormik"] : [],
-      usage: hasRHF
-        ? `const { register, handleSubmit } = useForm<Schema>({ resolver: zodResolver(schema) })`
-        : `<form onSubmit={handleSubmit}>...</form>`,
-    });
-  }
+  // ─── 1. Find shared components (used by 2+ parents) ───
+  const sharedComps = Array.from(usedBy.entries())
+    .filter(([, parents]) => parents.size >= 2)
+    .sort((a, b) => b[1].size - a[1].size);
 
-  // ─── Data Table / List ───
-  const tableComps = components.filter((c) =>
-    /table|datagrid|list(?!en)/i.test(c.name)
-  );
-  if (tableComps.length > 0) {
+  if (sharedComps.length > 0) {
+    const sharedUsages: ComponentUsage[] = sharedComps
+      .slice(0, 10)
+      .map(([name, parents]) => {
+        const comp = compMap.get(name);
+        return {
+          name,
+          file: comp?.filePath || "",
+          props: comp?.props.map((p) => p.name) || [],
+          usedByCount: parents.size,
+        };
+      });
+
     patterns.push({
-      name: "Data Tables",
-      description: `${tableComps.length} table/list component(s)`,
-      components: tableComps.map((c) => c.name),
+      name: "Shared Components",
+      description: `${sharedComps.length} components reused across the project`,
+      components: sharedUsages,
       hooks: [],
-      usage: `<${tableComps[0].name} data={data} columns={columns} />`,
+      usage: sharedUsages.slice(0, 3).map((c) => {
+        const propsStr = c.props.length > 0
+          ? " " + c.props.slice(0, 2).map((p) => `${p}={...}`).join(" ")
+          : "";
+        return `<${c.name}${propsStr} /> — used by ${c.usedByCount} components`;
+      }).join("\n"),
     });
   }
 
-  // ─── Navigation ───
-  const navComps = components.filter((c) =>
-    /nav|menu|sidebar|header|footer|breadcrumb|tab/i.test(c.name)
-  );
-  if (navComps.length > 0) {
+  // ─── 2. Find co-occurring component groups ───
+  // Components that are frequently used together in the same parent
+  const coOccurrence = new Map<string, Map<string, number>>();
+  for (const comp of components) {
+    const childList = [...comp.children];
+    for (let i = 0; i < childList.length; i++) {
+      for (let j = i + 1; j < childList.length; j++) {
+        const a = childList[i];
+        const b = childList[j];
+        if (!compMap.has(a) || !compMap.has(b)) continue;
+        const key = [a, b].sort().join("::");
+        if (!coOccurrence.has(key)) coOccurrence.set(key, new Map());
+        const pair = coOccurrence.get(key)!;
+        pair.set(comp.name, (pair.get(comp.name) || 0) + 1);
+      }
+    }
+  }
+
+  // Find groups with high co-occurrence
+  const frequentPairs = Array.from(coOccurrence.entries())
+    .filter(([, parents]) => parents.size >= 2)
+    .sort((a, b) => b[1].size - a[1].size)
+    .slice(0, 5);
+
+  for (const [pair, parents] of frequentPairs) {
+    const [a, b] = pair.split("::");
+    const compA = compMap.get(a);
+    const compB = compMap.get(b);
+    if (!compA || !compB) continue;
+
     patterns.push({
-      name: "Navigation",
-      description: `${navComps.length} navigation component(s)`,
-      components: navComps.map((c) => c.name),
+      name: `${a} + ${b}`,
+      description: `Always used together (in ${parents.size} components)`,
+      components: [
+        { name: a, file: compA.filePath, props: compA.props.map((p) => p.name), usedByCount: usedBy.get(a)?.size || 0 },
+        { name: b, file: compB.filePath, props: compB.props.map((p) => p.name), usedByCount: usedBy.get(b)?.size || 0 },
+      ],
       hooks: [],
-      usage: navComps.map((c) => `<${c.name} />`).join(", "),
+      usage: `<${a} />\n<${b} />`,
     });
   }
 
-  // ─── Loading / Skeleton ───
-  const loadingComps = components.filter((c) =>
-    /loading|skeleton|spinner|loader/i.test(c.name)
-  );
-  if (loadingComps.length > 0) {
-    patterns.push({
-      name: "Loading States",
-      description: `${loadingComps.length} loading component(s)`,
-      components: loadingComps.map((c) => c.name),
-      hooks: [],
-      usage: `<${loadingComps[0].name} />`,
-    });
-  }
-
-  // ─── Toast / Notification ───
-  const toastComps = components.filter((c) =>
-    /toast|notification|snackbar|alert/i.test(c.name)
-  );
-  const toastHooks = components.filter((c) =>
-    c.type === "hook" && /toast|notification/i.test(c.name)
-  );
-  if (toastComps.length > 0 || allImports.has("react-hot-toast") || allImports.has("sonner")) {
-    const lib = allImports.has("sonner") ? "sonner" : allImports.has("react-hot-toast") ? "react-hot-toast" : "custom";
-    patterns.push({
-      name: "Notifications",
-      description: `${lib}${toastComps.length > 0 ? ` + ${toastComps.length} component(s)` : ""}`,
-      components: toastComps.map((c) => c.name),
-      hooks: toastHooks.map((h) => h.name),
-      usage: lib === "sonner" ? `toast.success("Done!")` : `toast("Message")`,
-    });
-  }
-
-  // ─── Cards / Widgets ───
-  const cardComps = components.filter((c) =>
-    /card|widget|panel|tile/i.test(c.name)
-  );
-  if (cardComps.length > 0) {
-    patterns.push({
-      name: "Cards / Widgets",
-      description: `${cardComps.length} card component(s)`,
-      components: cardComps.map((c) => c.name),
-      hooks: [],
-      usage: `<${cardComps[0].name} title="..." />`,
-    });
-  }
-
-  // ─── Button variants ───
-  const btnComps = components.filter((c) =>
-    /^button/i.test(c.name) || /btn/i.test(c.name)
-  );
-  if (btnComps.length > 0) {
-    const mainBtn = btnComps[0];
-    const variantProp = mainBtn.props.find((p) =>
-      /variant|type|kind|style/i.test(p.name) && p.type.includes("|")
+  // ─── 3. Find hook + component pairings ───
+  const hooks = components.filter((c) => c.type === "hook" || c.name.startsWith("use"));
+  for (const hook of hooks) {
+    // Find components that import this hook
+    const users = components.filter((c) =>
+      c.imports.some((imp) => imp.specifiers.includes(hook.name)) ||
+      c.children.includes(hook.name)
     );
+    if (users.length >= 2) {
+      patterns.push({
+        name: `${hook.name} pattern`,
+        description: `Custom hook used by ${users.length} components`,
+        components: users.slice(0, 5).map((u) => ({
+          name: u.name,
+          file: u.filePath,
+          props: [],
+          usedByCount: 0,
+        })),
+        hooks: [hook.name],
+        usage: `const result = ${hook.name}()`,
+      });
+    }
+  }
+
+  // ─── 4. Detect layout patterns from actual component tree ───
+  const layouts = components.filter((c) => c.type === "layout");
+  if (layouts.length > 0) {
+    const layoutChildren: ComponentUsage[] = [];
+    for (const layout of layouts) {
+      for (const childName of layout.children) {
+        const child = compMap.get(childName);
+        if (child) {
+          layoutChildren.push({
+            name: childName,
+            file: child.filePath,
+            props: child.props.map((p) => p.name),
+            usedByCount: usedBy.get(childName)?.size || 0,
+          });
+        }
+      }
+    }
+    if (layoutChildren.length > 0) {
+      patterns.push({
+        name: "Layout Structure",
+        description: `${layouts.map((l) => l.name).join(", ")} wraps: ${layoutChildren.map((c) => c.name).join(", ")}`,
+        components: layoutChildren,
+        hooks: [],
+        usage: layouts.map((l) => {
+          const kids = l.children.slice(0, 4).map((c) => `<${c} />`).join("\n  ");
+          return `<${l.name}>\n  ${kids}\n</${l.name}>`;
+        }).join("\n"),
+      });
+    }
+  }
+
+  // ─── 5. Detect wrapper/provider patterns ───
+  const providers = components.filter((c) =>
+    c.type === "provider" || c.name.endsWith("Provider") || c.name.endsWith("Context")
+  );
+  if (providers.length > 0) {
     patterns.push({
-      name: "Buttons",
-      description: variantProp
-        ? `${btnComps.length} button(s) with variants: ${variantProp.type}`
-        : `${btnComps.length} button component(s)`,
-      components: btnComps.map((c) => c.name),
+      name: "Providers / Context",
+      description: `${providers.length} context provider(s) wrapping the app`,
+      components: providers.map((p) => ({
+        name: p.name,
+        file: p.filePath,
+        props: p.props.map((pr) => pr.name),
+        usedByCount: usedBy.get(p.name)?.size || 0,
+      })),
       hooks: [],
-      usage: variantProp
-        ? `<${mainBtn.name} variant="primary" onClick={handler}>Text</${mainBtn.name}>`
-        : `<${mainBtn.name} onClick={handler}>Text</${mainBtn.name}>`,
+      usage: providers.map((p) => `<${p.name}>...children...</${p.name}>`).join("\n"),
     });
   }
 
@@ -169,24 +204,34 @@ export function uiPatternsToMarkdown(patterns: UiPattern[]): string {
   if (patterns.length === 0) return "";
 
   const L: string[] = [];
-  L.push("## UI Patterns");
+  L.push("## Patterns");
   L.push("");
 
   for (const p of patterns) {
     L.push(`### ${p.name}`);
-    L.push(`${p.description}`);
+    L.push(p.description);
     L.push("");
-    L.push("```tsx");
-    L.push(p.usage);
-    L.push("```");
-    L.push("");
-    if (p.components.length > 0) {
-      L.push(`Components: ${p.components.map((c) => `\`${c}\``).join(", ")}`);
+
+    if (p.usage) {
+      L.push("```tsx");
+      L.push(p.usage);
+      L.push("```");
+      L.push("");
     }
+
+    if (p.components.length > 0) {
+      for (const c of p.components.slice(0, 5)) {
+        const propsStr = c.props.length > 0 ? ` (${c.props.slice(0, 4).join(", ")})` : "";
+        const usageStr = c.usedByCount > 0 ? ` — used by ${c.usedByCount}` : "";
+        L.push(`- \`${c.name}\` \`${c.file}\`${propsStr}${usageStr}`);
+      }
+      L.push("");
+    }
+
     if (p.hooks.length > 0) {
       L.push(`Hooks: ${p.hooks.map((h) => `\`${h}\``).join(", ")}`);
+      L.push("");
     }
-    L.push("");
   }
 
   return L.join("\n");

@@ -32,7 +32,7 @@ export function inferServiceProfile(
       allImports.add(imp.source.toLowerCase());
     }
   }
-  const routePaths = routes.map((r) => r.path.toLowerCase());
+  const routePaths = routes.filter((r) => !r.isApiRoute).map((r) => r.path.toLowerCase());
   const deps = Object.keys({
     ...(getDeps(project) || {}),
   });
@@ -40,48 +40,114 @@ export function inferServiceProfile(
   const domain: string[] = [];
   const features: string[] = [];
 
-  // ─── Domain detection from component names, routes, deps ───
+  // ─── Domain scoring: weighted signals from multiple sources ───
 
-  const domainSignals: [string[], string][] = [
-    [["cart", "checkout", "product", "order", "payment", "shop", "catalog", "price"], "E-commerce"],
-    [["dashboard", "analytics", "chart", "stat", "metric", "report", "graph"], "Dashboard / Analytics"],
-    [["auth", "login", "signup", "register", "password", "session", "oauth"], "Authentication"],
-    [["chat", "message", "conversation", "inbox", "notification"], "Messaging / Chat"],
-    [["post", "article", "blog", "comment", "feed", "timeline"], "Content / Blog"],
-    [["calendar", "schedule", "event", "booking", "appointment"], "Scheduling / Calendar"],
-    [["lecture", "course", "lesson", "student", "teacher", "quiz", "exam"], "Education / LMS"],
-    [["patient", "doctor", "medical", "health", "appointment", "clinic"], "Healthcare"],
-    [["invoice", "billing", "subscription", "plan", "pricing"], "Billing / SaaS"],
-    [["map", "location", "place", "marker", "route", "geo"], "Maps / Location"],
-    [["video", "player", "stream", "media", "audio"], "Media / Streaming"],
-    [["file", "upload", "document", "folder", "storage"], "File Management"],
-    [["user", "profile", "account", "setting", "preference"], "User Management"],
-    [["admin", "panel", "manage", "crud", "table", "list"], "Admin Panel"],
-    [["form", "input", "select", "field", "validation"], "Form-heavy"],
-    [["kanban", "board", "task", "project", "sprint", "issue"], "Project Management"],
-    [["social", "follow", "like", "share", "friend"], "Social Network"],
+  interface DomainSignal {
+    label: string;
+    /** Strong signals: component/route names specific to this domain */
+    strong: string[];
+    /** Weak signals: generic words that might match anything */
+    weak: string[];
+    /** Dependency signals: npm packages that strongly indicate this domain */
+    deps: string[];
+  }
+
+  const domainSignals: DomainSignal[] = [
+    { label: "E-commerce", strong: ["cart", "checkout", "product", "catalog", "shop"], weak: ["order", "price", "payment"], deps: ["stripe", "shopify", "snipcart", "medusa"] },
+    { label: "Dashboard / Analytics", strong: ["dashboard", "analytics", "metric", "kpi"], weak: ["chart", "stat", "report", "graph"], deps: ["recharts", "chart.js", "d3", "nivo", "victory"] },
+    { label: "Authentication", strong: ["login", "signup", "register", "oauth"], weak: ["auth", "password", "session"], deps: ["next-auth", "@auth/core", "passport", "clerk", "@clerk/nextjs"] },
+    { label: "Messaging / Chat", strong: ["chat", "conversation", "inbox", "messenger"], weak: ["message", "notification"], deps: ["socket.io", "pusher", "ably", "stream-chat"] },
+    { label: "Content / Blog", strong: ["article", "blog", "post", "editor"], weak: ["comment", "feed", "timeline", "content"], deps: ["@tiptap/react", "slate", "draft-js", "mdx"] },
+    { label: "Scheduling / Calendar", strong: ["calendar", "schedule", "booking", "appointment"], weak: ["event", "date"], deps: ["react-big-calendar", "fullcalendar", "@fullcalendar/core", "date-fns"] },
+    { label: "Education / LMS", strong: ["lecture", "course", "lesson", "quiz", "exam", "student"], weak: ["teacher", "curriculum"], deps: [] },
+    { label: "Healthcare", strong: ["patient", "doctor", "medical", "clinic", "diagnosis"], weak: ["health", "appointment"], deps: ["fhir"] },
+    { label: "Billing / SaaS", strong: ["invoice", "billing", "subscription"], weak: ["plan", "pricing"], deps: ["stripe", "lemon-squeezy", "paddle"] },
+    { label: "Maps / Location", strong: ["mapbox", "leaflet", "marker", "geolocation"], weak: ["map", "location", "place"], deps: ["mapbox-gl", "leaflet", "@react-google-maps/api", "maplibre-gl"] },
+    { label: "Media / Streaming", strong: ["video-player", "streaming", "playlist", "media-player"], weak: ["video", "audio", "stream", "player"], deps: ["video.js", "plyr", "hls.js", "shaka-player"] },
+    { label: "File Management", strong: ["file-manager", "file-browser", "document-viewer"], weak: ["upload", "file", "document", "storage"], deps: ["dropzone", "react-dropzone", "filepond"] },
+    { label: "Project Management", strong: ["kanban", "sprint", "backlog", "roadmap"], weak: ["task", "board", "issue"], deps: ["react-beautiful-dnd", "@dnd-kit/core", "react-trello"] },
+    { label: "Social Network", strong: ["social", "follow", "friend", "newsfeed"], weak: ["like", "share"], deps: [] },
+    { label: "Admin Panel", strong: ["admin-panel", "crud", "data-grid"], weak: ["admin", "manage", "panel"], deps: ["react-admin", "@refinedev/core", "ag-grid"] },
+    { label: "CMS", strong: ["cms", "page-builder", "content-management"], weak: ["content", "editor", "publish"], deps: ["@sanity/client", "contentful", "@strapi/strapi"] },
   ];
 
-  const searchPool = [...allNames, ...routePaths, ...deps].join(" ");
+  // Score each domain
+  const scores = new Map<string, number>();
 
-  for (const [signals, label] of domainSignals) {
-    const matchCount = signals.filter((s) => searchPool.includes(s)).length;
-    if (matchCount >= 2) {
-      domain.push(label);
+  // 1. Project name + description (highest weight)
+  const nameDesc = `${project.name} ${project.description}`.toLowerCase();
+  for (const sig of domainSignals) {
+    let score = 0;
+    for (const s of sig.strong) {
+      if (nameDesc.includes(s)) score += 5;
     }
+    scores.set(sig.label, (scores.get(sig.label) || 0) + score);
+  }
+
+  // 2. Route paths (high weight — routes are deliberate naming)
+  const routeStr = routePaths.join(" ");
+  for (const sig of domainSignals) {
+    let score = 0;
+    for (const s of sig.strong) {
+      if (routeStr.includes(s)) score += 3;
+    }
+    for (const s of sig.weak) {
+      // Weak signals only count in routes if they appear as path segments
+      if (routePaths.some((r) => r.split("/").includes(s))) score += 1;
+    }
+    scores.set(sig.label, (scores.get(sig.label) || 0) + score);
+  }
+
+  // 3. Dependencies (high weight — explicit library choice)
+  for (const sig of domainSignals) {
+    let score = 0;
+    for (const d of sig.deps) {
+      if (deps.some((dep) => dep.includes(d))) score += 4;
+    }
+    scores.set(sig.label, (scores.get(sig.label) || 0) + score);
+  }
+
+  // 4. Component names (medium weight)
+  const nameStr = allNames.join(" ");
+  for (const sig of domainSignals) {
+    let score = 0;
+    for (const s of sig.strong) {
+      // Count actual components named with this signal (not substring)
+      const count = allNames.filter((n) => n.includes(s)).length;
+      score += count * 2;
+    }
+    // Weak signals need multiple matches from components to count
+    let weakHits = 0;
+    for (const s of sig.weak) {
+      if (nameStr.includes(s)) weakHits++;
+    }
+    if (weakHits >= 2) score += weakHits;
+
+    scores.set(sig.label, (scores.get(sig.label) || 0) + score);
+  }
+
+  // Pick domains with score >= 5
+  const sortedDomains = Array.from(scores.entries())
+    .filter(([, score]) => score >= 5)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+
+  for (const [label] of sortedDomains) {
+    domain.push(label);
   }
 
   // ─── Feature detection ───
 
+  const allNamesStr = allNames.join(" ");
   const featureSignals: [string, () => boolean][] = [
     ["Real-time (WebSocket)", () => deps.some((d) => d.includes("socket") || d.includes("ws") || d.includes("pusher"))],
     ["Authentication", () => deps.some((d) => d.includes("auth") || d.includes("passport") || d.includes("jwt") || d.includes("clerk") || d.includes("supabase"))],
-    ["File upload", () => searchPool.includes("upload") || deps.some((d) => d.includes("multer") || d.includes("dropzone"))],
+    ["File upload", () => allNamesStr.includes("upload") || deps.some((d) => d.includes("multer") || d.includes("dropzone"))],
     ["Internationalization", () => deps.some((d) => d.includes("i18n") || d.includes("intl") || d.includes("react-intl"))],
     ["Drag & drop", () => deps.some((d) => d.includes("dnd") || d.includes("drag") || d.includes("sortable"))],
     ["Charts/Visualization", () => deps.some((d) => d.includes("chart") || d.includes("d3") || d.includes("recharts") || d.includes("nivo"))],
     ["Form management", () => deps.some((d) => d.includes("formik") || d.includes("react-hook-form") || d.includes("yup") || d.includes("zod"))],
-    ["Data tables", () => searchPool.includes("table") || deps.some((d) => d.includes("tanstack") || d.includes("ag-grid"))],
+    ["Data tables", () => allNamesStr.includes("table") || deps.some((d) => d.includes("tanstack") || d.includes("ag-grid"))],
     ["Maps", () => deps.some((d) => d.includes("mapbox") || d.includes("leaflet") || d.includes("google-maps"))],
     ["Payments", () => deps.some((d) => d.includes("stripe") || d.includes("paypal") || d.includes("payment"))],
     ["Email", () => deps.some((d) => d.includes("nodemailer") || d.includes("sendgrid") || d.includes("mailgun"))],
@@ -132,7 +198,7 @@ export function inferServiceProfile(
   else if (deps.some((d) => d.includes("firebase"))) auth = "Firebase Auth";
   else if (deps.some((d) => d.includes("passport"))) auth = "Passport.js";
   else if (deps.some((d) => d.includes("jwt") || d.includes("jsonwebtoken"))) auth = "JWT-based";
-  else if (searchPool.includes("login") || searchPool.includes("auth")) auth = "Custom auth (detected from components)";
+  else if (allNamesStr.includes("login") || allNamesStr.includes("auth")) auth = "Custom auth (detected from components)";
 
   // ─── Summary ───
 
