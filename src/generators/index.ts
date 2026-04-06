@@ -6,6 +6,7 @@ import { generateProjectRules } from "./project-rules.js";
 import { generatePageStructure } from "./page-structure.js";
 import { generateComponentSpecs } from "./component-specs.js";
 import { generateAiIntegration } from "./ai-integration.js";
+import { directoriesToMarkdown } from "../analyzers/directory-roles.js";
 
 export async function generateOutput(
   spec: SpecOutput,
@@ -28,6 +29,9 @@ export async function generateOutput(
     generatePageStructure(spec, outputDir, config),
     generateComponentSpecs(spec, outputDir, config),
     generateAiIntegration(spec, config),
+    // Directory structure
+    writeJson(path.join(outputDir, "directories.json"), spec.directories),
+    writeMarkdown(path.join(outputDir, "directories.md"), directoriesToMarkdown(spec.directories)),
   ]);
 }
 

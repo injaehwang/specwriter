@@ -68,15 +68,16 @@ export class ReactAdapter implements FrameworkAdapter {
     return extractComponentFromFile(filePath, content);
   }
 
-  async detectConventions(projectRoot: string, config: AnalysisConfig): Promise<Partial<ProjectRules>> {
-    return nextjsHelper.detectConventions(projectRoot, config);
+  async detectConventions(_projectRoot: string, _config: AnalysisConfig): Promise<Partial<ProjectRules>> {
+    return {};
   }
 
   getComponentGlobs(): string[] {
     return [
-      "src/components/**/*.{tsx,jsx}",
       "src/**/*.{tsx,jsx}",
       "components/**/*.{tsx,jsx}",
+      "lib/**/*.{tsx,jsx}",
+      "app/**/*.{tsx,jsx}",
     ];
   }
 

@@ -273,6 +273,17 @@ function buildFullContext(spec: SpecOutput): string {
   if (project.structure.apiDir) lines.push(`- API: \`${project.structure.apiDir}/\``);
   lines.push("");
 
+  // Directory Structure
+  if (spec.directories.length > 0) {
+    lines.push("## Directory Structure");
+    lines.push("");
+    for (const dir of spec.directories) {
+      const compNote = dir.componentCount > 0 ? ` — ${dir.componentCount} components` : "";
+      lines.push(`- \`${dir.path}/\` — ${dir.description}${compNote}`);
+    }
+    lines.push("");
+  }
+
   // Coding Conventions
   lines.push("## Coding Conventions");
   lines.push("");

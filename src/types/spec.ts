@@ -3,6 +3,7 @@ import { PageTree } from "./page.js";
 import { ComponentInfo, ComponentGraph } from "./component.js";
 import type { ToolingAnalysis } from "../analyzers/tooling.js";
 import type { McpRecommendation } from "../analyzers/mcp-recommendations.js";
+import type { DirectorySpec } from "../analyzers/directory-roles.js";
 
 export interface SpecOutput {
   manifest: ManifestInfo;
@@ -11,6 +12,7 @@ export interface SpecOutput {
   pageTree: PageTree;
   components: ComponentInfo[];
   componentGraph: ComponentGraph;
+  directories: DirectorySpec[];
   tooling: ToolingAnalysis;
   mcpRecommendations: McpRecommendation[];
 }

@@ -141,35 +141,29 @@ export class NextjsAdapter implements FrameworkAdapter {
     return extractComponentFromFile(filePath, content);
   }
 
-  async detectConventions(projectRoot: string, _config: AnalysisConfig): Promise<Partial<ProjectRules>> {
-    return {
-      naming: {
-        components: "PascalCase",
-        files: "kebab-case",
-        functions: "camelCase",
-        variables: "camelCase",
-        cssClasses: "unknown",
-        directories: "kebab-case",
-      } as NamingConventions,
-      patterns: [],
-      fileOrganization: [],
-      importConventions: [],
-    };
+  async detectConventions(_projectRoot: string, _config: AnalysisConfig): Promise<Partial<ProjectRules>> {
+    // Real convention detection is now done in analyzer.ts detectRealConventions()
+    return {};
   }
 
   getComponentGlobs(): string[] {
     return [
-      "src/components/**/*.{tsx,jsx}",
+      "src/**/*.{tsx,jsx}",
+      "app/**/*.{tsx,jsx}",
       "components/**/*.{tsx,jsx}",
-      "src/app/**/components/**/*.{tsx,jsx}",
-      "app/**/components/**/*.{tsx,jsx}",
+      "lib/**/*.{tsx,jsx}",
+      "ui/**/*.{tsx,jsx}",
+      "modules/**/*.{tsx,jsx}",
+      "features/**/*.{tsx,jsx}",
     ];
   }
 
   getPageGlobs(): string[] {
     return [
       "app/**/page.{tsx,jsx,ts,js}",
+      "app/**/layout.{tsx,jsx,ts,js}",
       "src/app/**/page.{tsx,jsx,ts,js}",
+      "src/app/**/layout.{tsx,jsx,ts,js}",
       "pages/**/*.{tsx,jsx,ts,js}",
       "src/pages/**/*.{tsx,jsx,ts,js}",
     ];
