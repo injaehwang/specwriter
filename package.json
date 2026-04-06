@@ -12,12 +12,17 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/bin/specwriter.js",
+    "prepublishOnly": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit"
   },
-  "keywords": ["spec", "documentation", "ai", "analysis", "wireframe", "component"],
-  "author": "",
+  "keywords": ["spec", "documentation", "ai", "analysis", "wireframe", "component", "claude", "cursor", "copilot"],
+  "author": "injaehwang",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/injaehwang/specwriter.git"
+  },
   "license": "MIT",
   "files": [
     "dist/"

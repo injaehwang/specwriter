@@ -1,34 +1,73 @@
 import { Command } from "commander";
 import path from "node:path";
 import fs from "node:fs/promises";
-import { DEFAULT_CONFIG } from "../../types/spec.js";
+import { DEFAULT_CONFIG, type AnalysisConfig } from "../../types/spec.js";
+import { runAnalysis } from "../../core/analyzer.js";
 
 export const initCommand = new Command("init")
-  .description("Initialize specwriter configuration file")
+  .description("Initialize specwriter and analyze the project")
   .argument("[path]", "Path to the project root", ".")
-  .action(async (targetPath: string) => {
+  .option("--config-only", "Only create config file without analysis", false)
+  .option("--no-wireframes", "Skip wireframe generation")
+  .option("--format <type>", "Output format: json, md, both", DEFAULT_CONFIG.format)
+  .option("--ai-target <targets...>", "AI targets: claude, cursor", DEFAULT_CONFIG.aiTargets)
+  .action(async (targetPath: string, opts) => {
     const root = path.resolve(targetPath);
     const configPath = path.join(root, "specwriter.config.json");
 
+    // Create config file if it doesn't exist
+    let existingConfig = false;
     try {
       await fs.access(configPath);
-      console.log("specwriter.config.json already exists. Skipping.");
-      return;
+      existingConfig = true;
+      console.log("  specwriter.config.json already exists.\n");
     } catch {
-      // File doesn't exist, proceed
+      const config = {
+        output: DEFAULT_CONFIG.output,
+        include: DEFAULT_CONFIG.include,
+        exclude: DEFAULT_CONFIG.exclude,
+        framework: "auto",
+        depth: DEFAULT_CONFIG.depth,
+        wireframes: true,
+        format: DEFAULT_CONFIG.format,
+        aiTargets: DEFAULT_CONFIG.aiTargets,
+      };
+      await fs.writeFile(configPath, JSON.stringify(config, null, 2) + "\n");
+      console.log("  Created specwriter.config.json\n");
     }
 
-    const config = {
+    if (opts.configOnly) return;
+
+    // Run analysis automatically
+    const analysisConfig: AnalysisConfig = {
+      root,
       output: DEFAULT_CONFIG.output,
+      framework: "auto",
       include: DEFAULT_CONFIG.include,
       exclude: DEFAULT_CONFIG.exclude,
-      framework: "auto",
       depth: DEFAULT_CONFIG.depth,
-      wireframes: true,
-      format: DEFAULT_CONFIG.format,
-      aiTargets: DEFAULT_CONFIG.aiTargets,
+      wireframes: opts.wireframes,
+      format: opts.format,
+      aiTargets: opts.aiTarget ?? DEFAULT_CONFIG.aiTargets,
     };
 
-    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + "\n");
-    console.log("Created specwriter.config.json");
+    // If existing config, load it
+    if (existingConfig) {
+      try {
+        const cfgContent = await fs.readFile(configPath, "utf-8");
+        const cfg = JSON.parse(cfgContent);
+        if (cfg.output) analysisConfig.output = cfg.output;
+        if (cfg.include) analysisConfig.include = cfg.include;
+        if (cfg.exclude) analysisConfig.exclude = cfg.exclude;
+        if (cfg.framework) analysisConfig.framework = cfg.framework;
+        if (cfg.depth) analysisConfig.depth = cfg.depth;
+        if (cfg.wireframes !== undefined) analysisConfig.wireframes = cfg.wireframes;
+        if (cfg.format) analysisConfig.format = cfg.format;
+        if (cfg.aiTargets) analysisConfig.aiTargets = cfg.aiTargets;
+      } catch {
+        // Use defaults if config is invalid
+      }
+    }
+
+    await runAnalysis(analysisConfig, true);
   });

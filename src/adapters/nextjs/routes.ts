@@ -3,6 +3,11 @@ import path from "node:path";
 import { glob } from "glob";
 import { RouteInfo } from "../../types/page.js";
 
+/** Join paths and normalize to posix separators */
+function posixJoin(...parts: string[]): string {
+  return path.join(...parts).replace(/\\/g, "/");
+}
+
 /**
  * Extract routes from Next.js App Router (app/ directory)
  */
@@ -41,7 +46,7 @@ export async function extractAppRouterRoutes(
 
     routes.push({
       path: routePath || "/",
-      filePath: path.join("app", file),
+      filePath: posixJoin("app", file),
       name: inferRouteName(routePath),
       layout: await findLayout(appDir, segments),
       isApiRoute: false,
@@ -75,7 +80,7 @@ export async function extractAppRouterRoutes(
 
     routes.push({
       path: routePath,
-      filePath: path.join("app", file),
+      filePath: posixJoin("app", file),
       name: inferRouteName(routePath) + " (API)",
       layout: null,
       isApiRoute: true,
@@ -135,7 +140,7 @@ export async function extractPagesRouterRoutes(
 
     routes.push({
       path: routePath || "/",
-      filePath: path.join("pages", file),
+      filePath: posixJoin("pages", file),
       name: inferRouteName(routePath || "/"),
       layout: null,
       isApiRoute: false,
@@ -163,7 +168,7 @@ export async function extractPagesRouterRoutes(
     const routePath = "/" + file.replace(/\.[jt]sx?$/, "").replace(/\/index$/, "");
     routes.push({
       path: routePath,
-      filePath: path.join("pages", file),
+      filePath: posixJoin("pages", file),
       name: inferRouteName(routePath) + " (API)",
       layout: null,
       isApiRoute: true,
@@ -190,7 +195,7 @@ async function findLayout(appDir: string, segments: string[]): Promise<string | 
     for (const ext of layoutExtensions) {
       try {
         await fs.access(path.join(dir, `layout.${ext}`));
-        return path.join("app", ...segments.slice(0, i), `layout.${ext}`);
+        return posixJoin("app", ...segments.slice(0, i), `layout.${ext}`);
       } catch {
         // Not found
       }

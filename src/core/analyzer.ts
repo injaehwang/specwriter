@@ -201,10 +201,18 @@ function findPageComponents(
   pageFilePath: string,
   allComponents: ComponentInfo[]
 ): ComponentInfo[] {
+  // Normalize path separators for cross-platform matching
+  const normalizedPagePath = pageFilePath.replace(/\\/g, "/");
+
   // Find the page component itself
-  const pageComp = allComponents.find(
-    (c) => c.filePath === pageFilePath || c.filePath.endsWith(pageFilePath)
-  );
+  const pageComp = allComponents.find((c) => {
+    const normalizedCompPath = c.filePath.replace(/\\/g, "/");
+    return (
+      normalizedCompPath === normalizedPagePath ||
+      normalizedCompPath.endsWith(normalizedPagePath) ||
+      normalizedPagePath.endsWith(normalizedCompPath)
+    );
+  });
   if (!pageComp) return [];
 
   // Find children recursively (up to 2 levels)
