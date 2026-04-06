@@ -1,6 +1,8 @@
 import { ProjectInfo } from "./project.js";
 import { PageTree } from "./page.js";
 import { ComponentInfo, ComponentGraph } from "./component.js";
+import type { ToolingAnalysis } from "../analyzers/tooling.js";
+import type { McpRecommendation } from "../analyzers/mcp-recommendations.js";
 
 export interface SpecOutput {
   manifest: ManifestInfo;
@@ -9,6 +11,8 @@ export interface SpecOutput {
   pageTree: PageTree;
   components: ComponentInfo[];
   componentGraph: ComponentGraph;
+  tooling: ToolingAnalysis;
+  mcpRecommendations: McpRecommendation[];
 }
 
 export interface ManifestInfo {

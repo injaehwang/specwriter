@@ -11,6 +11,8 @@ import { getAdapter } from "../adapters/registry.js";
 import { assignComponentRoles } from "../wireframe/layout-detector.js";
 import { buildWireframeFromComponents } from "../wireframe/ascii-renderer.js";
 import { generateOutput } from "../generators/index.js";
+import { analyzeTooling } from "../analyzers/tooling.js";
+import { recommendMcpServers } from "../analyzers/mcp-recommendations.js";
 
 export async function runAnalysis(
   config: AnalysisConfig,
@@ -79,6 +81,16 @@ export async function runAnalysis(
   log(verbose, "Detecting conventions...");
   const conventions = await adapter.detectConventions(config.root, config);
 
+  // Analyze tooling and recommend MCP servers
+  log(verbose, "Analyzing development tooling...");
+  const [tooling, mcpRecommendations] = await Promise.all([
+    analyzeTooling(config.root),
+    recommendMcpServers(config.root),
+  ]);
+  if (verbose && mcpRecommendations.length > 0) {
+    log(verbose, `  Recommended MCP servers: ${mcpRecommendations.map(r => r.name).join(", ")}`);
+  }
+
   // Build page tree with wireframes
   log(verbose, "Building page tree...");
   const pages: PageInfo[] = routes
@@ -140,6 +152,8 @@ export async function runAnalysis(
     pageTree,
     components,
     componentGraph,
+    tooling,
+    mcpRecommendations,
   };
 
   // Generate output files

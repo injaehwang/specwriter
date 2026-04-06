@@ -1,6 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { SpecOutput, AnalysisConfig } from "../types/spec.js";
+import { toolingToMarkdown, toolingToAiInstructions } from "../analyzers/tooling.js";
+import { buildMcpServerConfigs } from "../analyzers/mcp-recommendations.js";
 
 // ─── Marker for detecting specwriter-injected content ───
 const MARKER_START = "<!-- specwriter:start -->";
@@ -172,7 +174,20 @@ export async function generateAiIntegration(
   }
 
   // 3. Inject MCP server config into AI tools that support it
-  const mcpInjected = await injectMcpConfigs(projectRoot);
+  const mcpInjected = await injectMcpConfigs(projectRoot, spec);
+
+  // 4. Write recommended MCP config as a reference file
+  if (spec.mcpRecommendations.length > 0) {
+    const recConfigs = buildMcpServerConfigs(spec.mcpRecommendations);
+    const combined: Record<string, unknown> = {
+      specwriter: { command: "npx", args: ["-y", "specwriter", "serve", projectRoot] },
+      ...recConfigs,
+    };
+    await fs.writeFile(
+      path.join(outputDir, "mcp-servers.json"),
+      JSON.stringify({ mcpServers: combined }, null, 2) + "\n"
+    );
+  }
 
   if (injected.length > 0) {
     console.log(`  AI integrations: ${injected.join(", ")}`);
@@ -302,6 +317,39 @@ function buildFullContext(spec: SpecOutput): string {
         ? ` — props: ${comp.props.map((p) => `${p.name}: ${p.type}`).join(", ")}`
         : "";
       lines.push(`- **${comp.name}** \`${comp.filePath}\` [${comp.type}]${propsStr}`);
+    }
+    lines.push("");
+  }
+
+  // Development Tooling
+  const toolingMd = toolingToMarkdown(spec.tooling);
+  if (toolingMd.includes("###")) {
+    lines.push(toolingMd);
+  }
+
+  // AI-specific instructions derived from tooling
+  const aiInstructions = toolingToAiInstructions(spec.tooling);
+  if (aiInstructions) {
+    lines.push("## Rules for AI");
+    lines.push("");
+    lines.push("When writing code for this project, follow these rules:");
+    lines.push("");
+    for (const line of aiInstructions.split("\n")) {
+      if (line) lines.push(`- ${line}`);
+    }
+    lines.push("");
+  }
+
+  // Recommended MCP servers
+  if (spec.mcpRecommendations.length > 0) {
+    lines.push("## Recommended MCP Servers");
+    lines.push("");
+    lines.push("These MCP servers are recommended for this project:");
+    lines.push("");
+    for (const rec of spec.mcpRecommendations) {
+      const envNote = rec.env ? ` (requires: ${Object.keys(rec.env).join(", ")})` : "";
+      lines.push(`- **${rec.name}** — ${rec.description}${envNote}`);
+      lines.push(`  _Why: ${rec.reason}_`);
     }
     lines.push("");
   }
@@ -557,38 +605,20 @@ const MCP_CONFIGS: McpConfigLocation[] = [
   },
 ];
 
-async function injectMcpConfigs(projectRoot: string): Promise<string[]> {
+async function injectMcpConfigs(projectRoot: string, spec: SpecOutput): Promise<string[]> {
   const injected: string[] = [];
 
-  // Resolve the command to run the MCP server
-  const mcpCommand = "npx";
-  const mcpArgs = ["-y", "specwriter-mcp", projectRoot];
-
-  // Check if specwriter is installed locally
-  let isLocal = false;
-  try {
-    await fs.access(path.join(projectRoot, "node_modules", ".bin", "specwriter-mcp"));
-    isLocal = true;
-  } catch {
-    // Not installed locally; also check if we're in specwriter itself
-    try {
-      await fs.access(path.join(projectRoot, "node_modules", "specwriter"));
-      isLocal = true;
-    } catch {
-      // Use npx
-    }
-  }
-
-  const command = isLocal ? "npx" : "npx";
-  const args = isLocal
-    ? ["specwriter-mcp", projectRoot]
-    : ["-y", "specwriter", "serve", projectRoot];
-
-  // Actually, simplify: always use npx with the specwriter-mcp binary
   const mcpServerDef = {
     command: "npx",
     args: ["-y", "specwriter", "serve", projectRoot],
   };
+
+  // Build recommended MCP configs (only env-free ones auto-register)
+  const autoRegister = spec.mcpRecommendations.filter((r) => !r.env);
+  const recommendedConfigs: Record<string, { command: string; args: string[] }> = {};
+  for (const rec of autoRegister) {
+    recommendedConfigs[rec.id] = { command: rec.command, args: rec.args };
+  }
 
   for (const mcpConfig of MCP_CONFIGS) {
     const detectPath = path.join(projectRoot, mcpConfig.detectPath);
@@ -610,18 +640,17 @@ async function injectMcpConfigs(projectRoot: string): Promise<string[]> {
         // File doesn't exist yet, start fresh
       }
 
-      if (mcpConfig.format === "claude") {
-        // Claude: { "mcpServers": { "specwriter": { "command": ..., "args": ... } } }
-        if (!obj.mcpServers) obj.mcpServers = {};
-        (obj.mcpServers as Record<string, unknown>)["specwriter"] = mcpServerDef;
-      } else if (mcpConfig.format === "cursor") {
-        // Cursor: { "mcpServers": { "specwriter": { "command": ..., "args": ... } } }
-        if (!obj.mcpServers) obj.mcpServers = {};
-        (obj.mcpServers as Record<string, unknown>)["specwriter"] = mcpServerDef;
-      } else {
-        // Generic: same pattern
-        if (!obj.mcpServers) obj.mcpServers = {};
-        (obj.mcpServers as Record<string, unknown>)["specwriter"] = mcpServerDef;
+      if (!obj.mcpServers) obj.mcpServers = {};
+      const servers = obj.mcpServers as Record<string, unknown>;
+
+      // Always register specwriter itself
+      servers["specwriter"] = mcpServerDef;
+
+      // Auto-register recommended MCP servers that don't need env vars
+      for (const [id, config] of Object.entries(recommendedConfigs)) {
+        if (!(id in servers)) {
+          servers[id] = config;
+        }
       }
 
       await fs.writeFile(configPath, JSON.stringify(obj, null, 2) + "\n");
