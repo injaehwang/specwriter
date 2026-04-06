@@ -15,12 +15,19 @@ export const initCommand = new Command("init")
     const root = path.resolve(targetPath);
     const configPath = path.join(root, "specwriter.config.json");
 
+    console.log("");
+    console.log("  ╔══════════════════════════════════════════╗");
+    console.log("  ║  specwriter — Start spec writing...      ║");
+    console.log("  ╚══════════════════════════════════════════╝");
+    console.log("");
+    console.log(`  Target: ${root}`);
+    console.log("");
+
     // Create config file if it doesn't exist
     let existingConfig = false;
     try {
       await fs.access(configPath);
       existingConfig = true;
-      console.log("  specwriter.config.json already exists.\n");
     } catch {
       const config = {
         output: DEFAULT_CONFIG.output,

@@ -18,6 +18,14 @@ export const analyzeCommand = new Command("analyze")
   .action(async (targetPath: string, opts) => {
     const root = path.resolve(targetPath);
 
+    console.log("");
+    console.log("  ╔══════════════════════════════════════════╗");
+    console.log("  ║  specwriter — Start spec writing...      ║");
+    console.log("  ╚══════════════════════════════════════════╝");
+    console.log("");
+    console.log(`  Target: ${root}`);
+    console.log("");
+
     const config: AnalysisConfig = {
       root,
       output: opts.output,
