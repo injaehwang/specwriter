@@ -73,7 +73,7 @@ export interface AnalysisConfig {
   depth: number;
   wireframes: boolean;
   format: "json" | "md" | "both";
-  aiTargets: ("claude" | "cursor")[];
+  aiTargets: "auto" | string[];
 }
 
 export const DEFAULT_CONFIG: AnalysisConfig = {
@@ -96,5 +96,5 @@ export const DEFAULT_CONFIG: AnalysisConfig = {
   depth: 3,
   wireframes: true,
   format: "both",
-  aiTargets: ["claude", "cursor"],
+  aiTargets: "auto",
 };

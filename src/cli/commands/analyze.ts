@@ -13,7 +13,7 @@ export const analyzeCommand = new Command("analyze")
   .option("--depth <n>", "Component nesting depth", String(DEFAULT_CONFIG.depth))
   .option("--no-wireframes", "Skip wireframe generation")
   .option("--format <type>", "Output format: json, md, both", DEFAULT_CONFIG.format)
-  .option("--ai-target <targets...>", "AI targets: claude, cursor", DEFAULT_CONFIG.aiTargets)
+  .option("--ai-target <mode>", "AI integration: auto (detect existing), none (skip)", "auto")
   .option("--verbose", "Verbose output", false)
   .action(async (targetPath: string, opts) => {
     const root = path.resolve(targetPath);
