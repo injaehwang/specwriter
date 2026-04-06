@@ -204,22 +204,27 @@ async function discoverSourceFiles(
   const adapterGlobs = [...adapter.getComponentGlobs(), ...adapter.getPageGlobs()];
 
   // Broad patterns to catch everything
+  const ext = "{tsx,jsx,ts,js,vue,svelte}";
   const broadGlobs = [
-    "src/**/*.{tsx,jsx,ts,js}",
-    "app/**/*.{tsx,jsx,ts,js}",
-    "pages/**/*.{tsx,jsx,ts,js}",
-    "components/**/*.{tsx,jsx,ts,js}",
-    "lib/**/*.{tsx,jsx,ts,js}",
-    "ui/**/*.{tsx,jsx,ts,js}",
-    "modules/**/*.{tsx,jsx,ts,js}",
-    "features/**/*.{tsx,jsx,ts,js}",
-    "views/**/*.{tsx,jsx,ts,js}",
-    "layouts/**/*.{tsx,jsx,ts,js}",
+    `src/**/*.${ext}`,
+    `app/**/*.${ext}`,
+    `pages/**/*.${ext}`,
+    `components/**/*.${ext}`,
+    `lib/**/*.${ext}`,
+    `ui/**/*.${ext}`,
+    `modules/**/*.${ext}`,
+    `features/**/*.${ext}`,
+    `views/**/*.${ext}`,
+    `layouts/**/*.${ext}`,
+    `composables/**/*.${ext}`,
+    `stores/**/*.${ext}`,
+    `plugins/**/*.${ext}`,
+    `server/**/*.${ext}`,
     // Monorepo packages
-    "packages/*/src/**/*.{tsx,jsx,ts,js}",
-    "packages/*/app/**/*.{tsx,jsx,ts,js}",
-    "apps/*/src/**/*.{tsx,jsx,ts,js}",
-    "apps/*/app/**/*.{tsx,jsx,ts,js}",
+    `packages/*/src/**/*.${ext}`,
+    `packages/*/app/**/*.${ext}`,
+    `apps/*/src/**/*.${ext}`,
+    `apps/*/app/**/*.${ext}`,
   ];
 
   const allGlobs = [...new Set([...adapterGlobs, ...broadGlobs])];

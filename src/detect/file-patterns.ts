@@ -50,6 +50,22 @@ const PATTERN_SIGNATURES: PatternSignature[] = [
     confidence: 0.85,
     evidence: "Found Angular app structure (src/app/app.component.ts)",
   },
+  {
+    id: "vue",
+    patterns: [
+      { dir: "src", files: ["App.vue", "app.vue"] },
+    ],
+    confidence: 0.75,
+    evidence: "Found Vue app entry (src/App.vue)",
+  },
+  {
+    id: "vue",
+    patterns: [
+      { dir: "src/components", files: [] },
+    ],
+    confidence: 0.3,
+    evidence: "Found src/components directory (possible Vue project)",
+  },
 ];
 
 export async function detectFromFilePatterns(

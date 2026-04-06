@@ -13,9 +13,9 @@ const SIGNATURES: FrameworkSignature[] = [
   { id: "nuxt", dependencies: ["nuxt", "nuxt3"], confidence: 0.9 },
   { id: "sveltekit", dependencies: ["@sveltejs/kit"], confidence: 0.9 },
   { id: "angular", dependencies: ["@angular/core"], confidence: 0.9 },
-  { id: "vue", dependencies: ["vue"], confidence: 0.6 },
-  { id: "react", dependencies: ["react"], confidence: 0.6 },
-  { id: "svelte", dependencies: ["svelte"], confidence: 0.6 },
+  { id: "vue", dependencies: ["vue", "@vitejs/plugin-vue", "vue-router", "vue-loader", "@vue/cli-service"], confidence: 0.6 },
+  { id: "react", dependencies: ["react", "react-dom", "react-scripts", "@vitejs/plugin-react"], confidence: 0.6 },
+  { id: "svelte", dependencies: ["svelte", "@sveltejs/vite-plugin-svelte"], confidence: 0.6 },
 ];
 
 export async function detectFromPackageJson(

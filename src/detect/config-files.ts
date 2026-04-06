@@ -63,5 +63,36 @@ export async function detectFromConfigFiles(
     }
   }
 
+  // Check vite.config for framework plugins
+  const viteConfigs = ["vite.config.ts", "vite.config.js", "vite.config.mts", "vite.config.mjs"];
+  for (const file of viteConfigs) {
+    try {
+      const content = await fs.readFile(path.join(projectRoot, file), "utf-8");
+
+      if (content.includes("@vitejs/plugin-vue") || content.includes("plugin-vue") || content.includes("vue(")) {
+        results.push({
+          frameworkId: "vue",
+          confidence: 0.85,
+          evidence: [`Found Vue plugin in ${file}`],
+        });
+      } else if (content.includes("@vitejs/plugin-react") || content.includes("plugin-react") || content.includes("react(")) {
+        results.push({
+          frameworkId: "react",
+          confidence: 0.75,
+          evidence: [`Found React plugin in ${file}`],
+        });
+      } else if (content.includes("@sveltejs/vite-plugin-svelte") || content.includes("svelte(")) {
+        results.push({
+          frameworkId: "svelte",
+          confidence: 0.85,
+          evidence: [`Found Svelte plugin in ${file}`],
+        });
+      }
+      break;
+    } catch {
+      // File doesn't exist
+    }
+  }
+
   return results;
 }
