@@ -171,8 +171,14 @@ export async function generateAiIntegration(
     }
   }
 
+  // 3. Inject MCP server config into AI tools that support it
+  const mcpInjected = await injectMcpConfigs(projectRoot);
+
   if (injected.length > 0) {
     console.log(`  AI integrations: ${injected.join(", ")}`);
+  }
+  if (mcpInjected.length > 0) {
+    console.log(`  MCP registered:  ${mcpInjected.join(", ")}`);
   }
 }
 
@@ -513,4 +519,117 @@ async function injectJson(
 
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// ─── MCP Server auto-registration ───
+
+interface McpConfigLocation {
+  name: string;
+  detectPath: string;
+  configPath: string;
+  format: "claude" | "cursor" | "generic-json";
+}
+
+const MCP_CONFIGS: McpConfigLocation[] = [
+  {
+    name: "Claude Code",
+    detectPath: ".claude",
+    configPath: ".claude/settings.local.json",
+    format: "claude",
+  },
+  {
+    name: "Cursor",
+    detectPath: ".cursor",
+    configPath: ".cursor/mcp.json",
+    format: "cursor",
+  },
+  {
+    name: "Windsurf",
+    detectPath: ".windsurf",
+    configPath: ".windsurf/mcp.json",
+    format: "generic-json",
+  },
+  {
+    name: "Cline",
+    detectPath: ".cline",
+    configPath: ".cline/mcp_settings.json",
+    format: "generic-json",
+  },
+];
+
+async function injectMcpConfigs(projectRoot: string): Promise<string[]> {
+  const injected: string[] = [];
+
+  // Resolve the command to run the MCP server
+  const mcpCommand = "npx";
+  const mcpArgs = ["-y", "specwriter-mcp", projectRoot];
+
+  // Check if specwriter is installed locally
+  let isLocal = false;
+  try {
+    await fs.access(path.join(projectRoot, "node_modules", ".bin", "specwriter-mcp"));
+    isLocal = true;
+  } catch {
+    // Not installed locally; also check if we're in specwriter itself
+    try {
+      await fs.access(path.join(projectRoot, "node_modules", "specwriter"));
+      isLocal = true;
+    } catch {
+      // Use npx
+    }
+  }
+
+  const command = isLocal ? "npx" : "npx";
+  const args = isLocal
+    ? ["specwriter-mcp", projectRoot]
+    : ["-y", "specwriter", "serve", projectRoot];
+
+  // Actually, simplify: always use npx with the specwriter-mcp binary
+  const mcpServerDef = {
+    command: "npx",
+    args: ["-y", "specwriter", "serve", projectRoot],
+  };
+
+  for (const mcpConfig of MCP_CONFIGS) {
+    const detectPath = path.join(projectRoot, mcpConfig.detectPath);
+    try {
+      await fs.access(detectPath);
+    } catch {
+      continue; // AI tool not present in this project
+    }
+
+    try {
+      const configPath = path.join(projectRoot, mcpConfig.configPath);
+      await fs.mkdir(path.dirname(configPath), { recursive: true });
+
+      let obj: Record<string, unknown> = {};
+      try {
+        const content = await fs.readFile(configPath, "utf-8");
+        obj = JSON.parse(content);
+      } catch {
+        // File doesn't exist yet, start fresh
+      }
+
+      if (mcpConfig.format === "claude") {
+        // Claude: { "mcpServers": { "specwriter": { "command": ..., "args": ... } } }
+        if (!obj.mcpServers) obj.mcpServers = {};
+        (obj.mcpServers as Record<string, unknown>)["specwriter"] = mcpServerDef;
+      } else if (mcpConfig.format === "cursor") {
+        // Cursor: { "mcpServers": { "specwriter": { "command": ..., "args": ... } } }
+        if (!obj.mcpServers) obj.mcpServers = {};
+        (obj.mcpServers as Record<string, unknown>)["specwriter"] = mcpServerDef;
+      } else {
+        // Generic: same pattern
+        if (!obj.mcpServers) obj.mcpServers = {};
+        (obj.mcpServers as Record<string, unknown>)["specwriter"] = mcpServerDef;
+      }
+
+      await fs.writeFile(configPath, JSON.stringify(obj, null, 2) + "\n");
+      injected.push(mcpConfig.name);
+    } catch {
+      // Skip on error
+    }
+  }
+
+  return injected;
 }

@@ -1,4 +1,5 @@
 export { runAnalysis } from "./core/analyzer.js";
+export { startMcpServer } from "./mcp/server.js";
 export { detectFramework } from "./detect/index.js";
 export { getAdapter } from "./adapters/registry.js";
 export { renderWireframe, buildWireframeFromComponents } from "./wireframe/ascii-renderer.js";

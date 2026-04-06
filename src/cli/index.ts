@@ -2,6 +2,7 @@ import { Command } from "commander";
 import { analyzeCommand } from "./commands/analyze.js";
 import { initCommand } from "./commands/init.js";
 import { infoCommand } from "./commands/info.js";
+import { serveCommand } from "./commands/serve.js";
 
 export const cli = new Command()
   .name("specwriter")
@@ -11,3 +12,4 @@ export const cli = new Command()
 cli.addCommand(analyzeCommand);
 cli.addCommand(initCommand);
 cli.addCommand(infoCommand);
+cli.addCommand(serveCommand);
