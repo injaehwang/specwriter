@@ -5,6 +5,10 @@ import { toolingToAiInstructions } from "../analyzers/tooling.js";
 import { buildMcpServerConfigs } from "../analyzers/mcp-recommendations.js";
 import { resolveEnvVars } from "../analyzers/env-resolver.js";
 import { inferServiceProfile, detectCodePatterns } from "../analyzers/service-inference.js";
+import { analyzeComponentUsage, usageGuideToMarkdown } from "../analyzers/usage-patterns.js";
+import { analyzePageTemplate, pageTemplateToMarkdown } from "../analyzers/page-templates.js";
+import { analyzeApiPatterns, apiPatternsToMarkdown } from "../analyzers/api-patterns.js";
+import { detectUiPatterns, uiPatternsToMarkdown } from "../analyzers/ui-patterns.js";
 
 // ─── Marker for detecting specwriter-injected content ───
 const MARKER_START = "<!-- specwriter:start -->";
@@ -160,7 +164,7 @@ export async function generateAiIntegration(
   const outputDir = path.resolve(projectRoot, config.output);
 
   // 1. Always generate the universal context file inside .specwriter/
-  await writeUniversalContext(spec, outputDir);
+  await writeUniversalContext(spec, outputDir, config);
 
   // 2. Detect existing AI configs and inject references
   const detected = await detectAiConfigs(projectRoot);
@@ -226,13 +230,40 @@ async function detectAiConfigs(projectRoot: string): Promise<AiConfigTarget[]> {
 
 async function writeUniversalContext(
   spec: SpecOutput,
-  outputDir: string
+  outputDir: string,
+  config: AnalysisConfig,
 ): Promise<void> {
-  const content = buildFullContext(spec);
+  const { project, components, pageTree } = spec;
+
+  // Analyze patterns
+  const usageGuides = analyzeComponentUsage(components);
+  const pageTemplate = analyzePageTemplate(components, pageTree.routes, project.framework.id);
+  const apiPatterns = await analyzeApiPatterns(config.root, components, pageTree.routes);
+  const uiPatterns = detectUiPatterns(components);
+
+  // Build main AI_CONTEXT.md — compact, essential
+  const content = buildFullContext(spec, pageTemplate, apiPatterns, uiPatterns);
   await fs.writeFile(path.join(outputDir, "AI_CONTEXT.md"), content);
+
+  // Write detailed component usage guide (separate file)
+  if (usageGuides.length > 0) {
+    const topGuides = usageGuides
+      .filter((g) => g.usageSites.length > 0 || g.variants.length > 0)
+      .slice(0, 30);
+    if (topGuides.length > 0) {
+      const guideContent = "# Component Usage Guide\n\n" +
+        topGuides.map((g) => usageGuideToMarkdown(g)).join("\n---\n\n");
+      await fs.writeFile(path.join(outputDir, "components", "_usage.md"), guideContent);
+    }
+  }
 }
 
-function buildFullContext(spec: SpecOutput): string {
+function buildFullContext(
+  spec: SpecOutput,
+  pageTemplate: ReturnType<typeof analyzePageTemplate>,
+  apiPatterns: Awaited<ReturnType<typeof analyzeApiPatterns>>,
+  uiPatterns: ReturnType<typeof detectUiPatterns>,
+): string {
   const { project, rules, pageTree, components } = spec;
   const L: string[] = [];
 
@@ -367,12 +398,29 @@ function buildFullContext(spec: SpecOutput): string {
     L.push("");
   }
 
-  // ─── Reference to detailed specs (minimal) ───
+  // ─── Page template ───
+  if (pageTemplate.templateCode) {
+    L.push(pageTemplateToMarkdown(pageTemplate));
+  }
+
+  // ─── API patterns ───
+  if (apiPatterns.endpoints.length > 0 || apiPatterns.apiUtilFile) {
+    L.push(apiPatternsToMarkdown(apiPatterns));
+  }
+
+  // ─── UI patterns ───
+  const uiMd = uiPatternsToMarkdown(uiPatterns);
+  if (uiMd) {
+    L.push(uiMd);
+  }
+
+  // ─── Reference ───
   L.push("## Details");
   L.push("");
-  L.push("Read `.specwriter/components/<name>.md` for individual component specs (props, state, children).");
+  L.push("- `.specwriter/components/<name>.md` — individual component specs");
+  L.push("- `.specwriter/components/_usage.md` — component usage guide with examples");
   if (pageRoutes.length > 0) {
-    L.push("Read `.specwriter/pages/<name>.md` for page specs with wireframes.");
+    L.push("- `.specwriter/pages/<name>.md` — page specs with wireframes");
   }
   L.push("");
 
