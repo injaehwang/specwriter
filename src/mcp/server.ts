@@ -5,6 +5,11 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { runAnalysis } from "../core/analyzer.js";
 import { DEFAULT_CONFIG, type AnalysisConfig } from "../types/spec.js";
+import {
+  createFeature, getFeature, listFeatures, updateFeature,
+  addPageToFeature, addComponentToFeature, addApiToFeature,
+  type FeaturePage, type FeatureComponent, type FeatureApi,
+} from "../features/manager.js";
 
 let projectRoot: string;
 let specDir: string;
@@ -200,6 +205,126 @@ export async function startMcpServer(root: string): Promise<void> {
     async () => {
       const content = await readSpec("components/_index.md");
       return { content: [{ type: "text" as const, text: content || "No component index found." }] };
+    }
+  );
+
+  // ─── Feature Management Tools ───
+
+  server.tool(
+    "create_feature",
+    "Create a new feature specification. Use this when the user wants to build a new feature. Automatically suggests reusable components from the existing codebase.",
+    {
+      name: z.string().describe("Feature name (e.g. 'Login', 'User Dashboard', 'Payment Flow')"),
+      description: z.string().describe("What this feature does in 1-2 sentences"),
+    },
+    async ({ name, description }) => {
+      const feature = await createFeature(specDir, name, description, null);
+      const md = await readSpec(`features/${feature.slug}.md`);
+      return { content: [{ type: "text" as const, text: `Feature "${name}" created.\n\n${md || ""}` }] };
+    }
+  );
+
+  server.tool(
+    "get_feature",
+    "Get a feature specification by name. Read this before implementing a feature.",
+    { name: z.string().describe("Feature name or slug") },
+    async ({ name }) => {
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      const md = await readSpec(`features/${slug}.md`);
+      if (md) return { content: [{ type: "text" as const, text: md }] };
+      return { content: [{ type: "text" as const, text: `Feature "${name}" not found. Use create_feature to create it.` }] };
+    }
+  );
+
+  server.tool(
+    "list_features",
+    "List all feature specifications and their status",
+    {},
+    async () => {
+      const features = await listFeatures(specDir);
+      if (features.length === 0) {
+        return { content: [{ type: "text" as const, text: "No features defined yet. Use create_feature to create one." }] };
+      }
+      const lines = features.map((f) =>
+        `- **${f.name}** [${f.status}] — ${f.description} (${f.pages.length} pages, ${f.components.length} components, ${f.api.length} endpoints)`
+      );
+      return { content: [{ type: "text" as const, text: `## Features\n\n${lines.join("\n")}` }] };
+    }
+  );
+
+  server.tool(
+    "update_feature",
+    "Update a feature's status or notes. Use after implementing or when planning changes.",
+    {
+      name: z.string().describe("Feature name or slug"),
+      status: z.enum(["draft", "in-progress", "done"]).optional().describe("New status"),
+      notes: z.string().optional().describe("Implementation notes or decisions"),
+    },
+    async ({ name, status, notes }) => {
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      const updates: Record<string, unknown> = {};
+      if (status) updates.status = status;
+      if (notes) updates.notes = notes;
+
+      const feature = await updateFeature(specDir, slug, updates);
+      if (!feature) return { content: [{ type: "text" as const, text: `Feature "${name}" not found.` }] };
+
+      return { content: [{ type: "text" as const, text: `Feature "${feature.name}" updated to [${feature.status}].` }] };
+    }
+  );
+
+  server.tool(
+    "add_feature_page",
+    "Add a page to a feature specification",
+    {
+      feature: z.string().describe("Feature name or slug"),
+      route: z.string().describe("Page route (e.g. /login, /dashboard/settings)"),
+      description: z.string().describe("What this page does"),
+      components: z.array(z.string()).optional().describe("Components needed on this page"),
+    },
+    async ({ feature, route, description, components }) => {
+      const slug = feature.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      const page: FeaturePage = { route, description, components: components || [] };
+      const updated = await addPageToFeature(specDir, slug, page);
+      if (!updated) return { content: [{ type: "text" as const, text: `Feature "${feature}" not found.` }] };
+      return { content: [{ type: "text" as const, text: `Added page ${route} to feature "${updated.name}".` }] };
+    }
+  );
+
+  server.tool(
+    "add_feature_component",
+    "Add a component to a feature specification",
+    {
+      feature: z.string().describe("Feature name or slug"),
+      name: z.string().describe("Component name (e.g. LoginForm, UserCard)"),
+      description: z.string().describe("What this component does"),
+      props: z.array(z.string()).optional().describe("Props this component needs"),
+      isNew: z.boolean().optional().describe("Whether this is a new component (true) or existing (false)"),
+    },
+    async ({ feature, name, description, props, isNew }) => {
+      const slug = feature.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      const comp: FeatureComponent = { name, description, props: props || [], isNew: isNew ?? true };
+      const updated = await addComponentToFeature(specDir, slug, comp);
+      if (!updated) return { content: [{ type: "text" as const, text: `Feature "${feature}" not found.` }] };
+      return { content: [{ type: "text" as const, text: `Added component ${name} to feature "${updated.name}".` }] };
+    }
+  );
+
+  server.tool(
+    "add_feature_api",
+    "Add an API endpoint to a feature specification",
+    {
+      feature: z.string().describe("Feature name or slug"),
+      method: z.string().describe("HTTP method (GET, POST, PUT, DELETE)"),
+      path: z.string().describe("API path (e.g. /api/auth/login)"),
+      description: z.string().describe("What this endpoint does"),
+    },
+    async ({ feature, method, path: apiPath, description }) => {
+      const slug = feature.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      const api: FeatureApi = { method: method.toUpperCase(), path: apiPath, description };
+      const updated = await addApiToFeature(specDir, slug, api);
+      if (!updated) return { content: [{ type: "text" as const, text: `Feature "${feature}" not found.` }] };
+      return { content: [{ type: "text" as const, text: `Added ${method.toUpperCase()} ${apiPath} to feature "${updated.name}".` }] };
     }
   );
 
