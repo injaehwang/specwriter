@@ -4,7 +4,7 @@ import { glob } from "glob";
 import { AnalysisConfig, SpecOutput } from "../types/spec.js";
 import { ProjectInfo, FrameworkInfo } from "../types/project.js";
 import { ComponentInfo, ComponentGraph } from "../types/component.js";
-import { PageTree, PageInfo } from "../types/page.js";
+import { PageTree, PageInfo, RouteInfo } from "../types/page.js";
 import { detectFramework } from "../detect/index.js";
 import { readPackageJson } from "../detect/package-json.js";
 import { getAdapter } from "../adapters/registry.js";
@@ -14,6 +14,7 @@ import { generateOutput } from "../generators/index.js";
 import { analyzeTooling } from "../analyzers/tooling.js";
 import { recommendMcpServers } from "../analyzers/mcp-recommendations.js";
 import { analyzeDirectories } from "../analyzers/directory-roles.js";
+import { tryRustCore, type RustSnapshot } from "./rust-bridge.js";
 
 // ─── Progress display ───
 
@@ -34,8 +35,17 @@ export async function runAnalysis(
   const startTime = Date.now();
   const debug = (config as any)._debug;
 
+  // Try Rust core for fast scanning
+  progress("Initializing...");
+  const rustSnapshot = tryRustCore(config.root);
+  if (rustSnapshot) {
+    progressDone(`Rust core: ${rustSnapshot.stats.total_files} files in ${rustSnapshot.stats.duration_ms}ms`);
+  }
+
   if (debug) {
     console.log("  [DEBUG] === specwriter debug mode ===");
+    console.log(`  [DEBUG] Rust core: ${rustSnapshot ? "available" : "not found (using Node.js)"}`);
+    if (rustSnapshot) console.log(`  [DEBUG] Rust found: ${rustSnapshot.stats.components_found} components in ${rustSnapshot.stats.duration_ms}ms`);
     console.log(`  [DEBUG] config.root: ${config.root}`);
     console.log(`  [DEBUG] config.output: ${config.output}`);
     console.log(`  [DEBUG] config.framework: ${config.framework}`);
@@ -104,22 +114,59 @@ export async function runAnalysis(
     structure,
   };
 
-  // 3. Discover ALL source files
-  progress("Scanning files...");
-  const allFiles = await discoverSourceFiles(config, adapter);
-  progressDone(`Found ${allFiles.length} source files`);
+  // 3-5. Scan files, extract components and routes
+  let components: ComponentInfo[];
+  let routes: RouteInfo[];
+  let fileCount: number;
 
-  // 4. Extract ALL components from ALL files
-  progress(`Extracting components (0/${allFiles.length})...`);
-  const components = await extractAllComponents(config, adapter, allFiles, (done, total) => {
-    progress(`Extracting components (${done}/${total})...`);
-  });
-  progressDone(`Extracted ${components.length} components from ${allFiles.length} files`);
+  if (rustSnapshot) {
+    // Use Rust snapshot — fast path
+    components = rustSnapshot.components.map((c) => ({
+      name: c.name,
+      filePath: c.file_path,
+      type: c.component_type as any,
+      props: c.props.map((p) => ({ name: p.name, type: p.prop_type, required: p.required, defaultValue: p.default_value, description: "" })),
+      state: c.state.map((s) => ({ name: s.name, type: s.state_type, initialValue: s.initial_value, setter: s.setter, source: s.source as any })),
+      events: [],
+      slots: [],
+      imports: c.imports.map((i) => ({ source: i.source, specifiers: i.specifiers, isDefault: i.is_default, isType: i.is_type })),
+      children: c.children,
+      exportType: c.export_type as any,
+      isClientComponent: c.is_client,
+      isServerComponent: c.is_server,
+      description: c.description,
+      loc: { start: c.line_start, end: c.line_end },
+    }));
+    routes = rustSnapshot.routes.map((r) => ({
+      path: r.path,
+      filePath: r.file_path,
+      name: r.name,
+      layout: null,
+      isApiRoute: r.is_api,
+      isDynamic: r.is_dynamic,
+      params: r.params,
+      children: [],
+      metadata: { title: null, description: null, isProtected: false, middleware: [] },
+    }));
+    fileCount = rustSnapshot.stats.total_files;
+    progressDone(`${components.length} components, ${routes.length} routes from ${fileCount} files`);
+  } else {
+    // Node.js fallback — slower path
+    progress("Scanning files...");
+    const allFiles = await discoverSourceFiles(config, adapter);
+    fileCount = allFiles.length;
+    progressDone(`Found ${allFiles.length} source files`);
 
-  // 5. Extract routes
-  progress("Extracting routes...");
-  const routes = await adapter.extractRoutes(config.root, config);
-  progressDone(`Found ${routes.length} routes`);
+    progress(`Extracting components (0/${allFiles.length})...`);
+    components = await extractAllComponents(config, adapter, allFiles, (done, total) => {
+      progress(`Extracting components (${done}/${total})...`);
+    });
+    progressDone(`Extracted ${components.length} components from ${allFiles.length} files`);
+
+    progress("Extracting routes...");
+    routes = await adapter.extractRoutes(config.root, config);
+    progressDone(`Found ${routes.length} routes`);
+  }
 
   // 6. Detect conventions (ACTUALLY analyze, not hardcode)
   progress("Analyzing conventions...");
@@ -179,7 +226,7 @@ export async function runAnalysis(
       generatedAt: new Date().toISOString(),
       toolVersion: "0.1.0",
       frameworkDetected: frameworkId,
-      analyzedFiles: allFiles.length,
+      analyzedFiles: fileCount,
       duration: Date.now() - startTime,
     },
     project: projectInfo,
