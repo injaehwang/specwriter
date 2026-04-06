@@ -1,0 +1,14 @@
+{
+  "name": "specwriter-core-darwin-x64",
+  "version": "0.3.2",
+  "description": "specwriter Rust core binary for macOS x64 (Intel)",
+  "os": ["darwin"],
+  "cpu": ["x64"],
+  "main": "index.js",
+  "files": ["bin/specwriter-core", "index.js"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/injaehwang/specwriter.git"
+  }
+}

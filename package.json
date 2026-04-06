@@ -1,6 +1,6 @@
 {
   "name": "specwriter",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Analyze existing projects and generate comprehensive specifications for AI coding assistants",
   "type": "module",
   "main": "dist/index.js",
@@ -36,11 +36,16 @@
   },
   "license": "MIT",
   "files": [
-    "dist/",
-    "bin/specwriter-core.exe"
+    "dist/"
   ],
   "engines": {
     "node": ">=18.0.0"
+  },
+  "optionalDependencies": {
+    "specwriter-core-win32-x64": "0.3.2",
+    "specwriter-core-darwin-arm64": "0.3.2",
+    "specwriter-core-darwin-x64": "0.3.2",
+    "specwriter-core-linux-x64": "0.3.2"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
