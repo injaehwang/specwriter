@@ -3,6 +3,7 @@ import path from "node:path";
 import { SpecOutput, AnalysisConfig } from "../types/spec.js";
 import { toolingToMarkdown, toolingToAiInstructions } from "../analyzers/tooling.js";
 import { buildMcpServerConfigs } from "../analyzers/mcp-recommendations.js";
+import { resolveEnvVars, applyResolvedEnv } from "../analyzers/env-resolver.js";
 
 // ─── Marker for detecting specwriter-injected content ───
 const MARKER_START = "<!-- specwriter:start -->";
@@ -613,11 +614,50 @@ async function injectMcpConfigs(projectRoot: string, spec: SpecOutput): Promise<
     args: ["-y", "specwriter", "serve", projectRoot],
   };
 
-  // Build recommended MCP configs (only env-free ones auto-register)
-  const autoRegister = spec.mcpRecommendations.filter((r) => !r.env);
-  const recommendedConfigs: Record<string, { command: string; args: string[] }> = {};
-  for (const rec of autoRegister) {
-    recommendedConfigs[rec.id] = { command: rec.command, args: rec.args };
+  // Resolve env vars from .env files and system env
+  const resolvedEnvs = await resolveEnvVars(projectRoot, spec.mcpRecommendations);
+
+  // Build ALL recommended MCP configs
+  const recommendedConfigs: Record<string, { command: string; args: string[]; env?: Record<string, string> }> = {};
+  for (const rec of spec.mcpRecommendations) {
+    const config: { command: string; args: string[]; env?: Record<string, string> } = {
+      command: rec.command,
+      args: rec.args,
+    };
+    if (rec.env) {
+      config.env = {};
+      const resolved = resolvedEnvs.get(rec.id);
+      for (const [key] of Object.entries(rec.env)) {
+        // Use resolved value if found, otherwise placeholder
+        if (resolved && resolved[key]) {
+          config.env[key] = resolved[key].value;
+        } else {
+          config.env[key] = `<SET_YOUR_${key}>`;
+        }
+      }
+    }
+    recommendedConfigs[rec.id] = config;
+  }
+
+  // Track what was auto-resolved
+  const autoActivated: string[] = [];
+  const needsSetup: string[] = [];
+
+  for (const rec of spec.mcpRecommendations) {
+    if (!rec.env) {
+      autoActivated.push(rec.name);
+    } else if (resolvedEnvs.has(rec.id)) {
+      const resolved = resolvedEnvs.get(rec.id)!;
+      const allKeys = Object.keys(rec.env);
+      const resolvedKeys = Object.keys(resolved);
+      if (resolvedKeys.length >= allKeys.length) {
+        autoActivated.push(`${rec.name} (from ${resolved[resolvedKeys[0]].source})`);
+      } else {
+        needsSetup.push(rec.name);
+      }
+    } else {
+      needsSetup.push(rec.name);
+    }
   }
 
   for (const mcpConfig of MCP_CONFIGS) {
@@ -625,7 +665,7 @@ async function injectMcpConfigs(projectRoot: string, spec: SpecOutput): Promise<
     try {
       await fs.access(detectPath);
     } catch {
-      continue; // AI tool not present in this project
+      continue;
     }
 
     try {
@@ -637,7 +677,7 @@ async function injectMcpConfigs(projectRoot: string, spec: SpecOutput): Promise<
         const content = await fs.readFile(configPath, "utf-8");
         obj = JSON.parse(content);
       } catch {
-        // File doesn't exist yet, start fresh
+        // Start fresh
       }
 
       if (!obj.mcpServers) obj.mcpServers = {};
@@ -646,7 +686,7 @@ async function injectMcpConfigs(projectRoot: string, spec: SpecOutput): Promise<
       // Always register specwriter itself
       servers["specwriter"] = mcpServerDef;
 
-      // Auto-register recommended MCP servers that don't need env vars
+      // Register ALL recommended MCP servers
       for (const [id, config] of Object.entries(recommendedConfigs)) {
         if (!(id in servers)) {
           servers[id] = config;
@@ -658,6 +698,14 @@ async function injectMcpConfigs(projectRoot: string, spec: SpecOutput): Promise<
     } catch {
       // Skip on error
     }
+  }
+
+  // Log activation status
+  if (autoActivated.length > 0) {
+    console.log(`  MCP activated:   ${autoActivated.join(", ")}`);
+  }
+  if (needsSetup.length > 0) {
+    console.log(`  MCP pending:     ${needsSetup.join(", ")} (need API keys in .env)`);
   }
 
   return injected;

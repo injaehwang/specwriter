@@ -164,7 +164,8 @@ export async function runAnalysis(
   console.log(
     `\n  Done! Analyzed ${components.length} components, ${routes.length} routes in ${duration}s`
   );
-  console.log(`  Output: ${path.resolve(config.root, config.output)}/\n`);
+  console.log(`  Output: ${path.resolve(config.root, config.output)}/`);
+  console.log("");
 }
 
 async function extractAllComponents(
