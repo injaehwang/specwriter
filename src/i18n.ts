@@ -140,10 +140,10 @@ const strings: Record<string, Record<Lang, string>> = {
     zh: "功能规范",
   },
   "feature_rule_1": {
-    en: "Create `.specwriter/features/<name>.md` with the full spec before coding",
-    ko: "코딩 전에 `.specwriter/features/<이름>.md`에 기능 명세를 먼저 작성하세요",
-    ja: "コーディング前に `.specwriter/features/<名前>.md` に仕様を作成してください",
-    zh: "编码前先在 `.specwriter/features/<名称>.md` 中创建完整规范",
+    en: "Create spec in `.specwriter/features/` before coding. Naming: `page-NN-<name>.md`, `common-NN-<name>.md`, `api-NN-<name>.md`",
+    ko: "코딩 전에 `.specwriter/features/`에 명세를 작성하세요. 파일명: `page-NN-<이름>.md`, `common-NN-<이름>.md`, `api-NN-<이름>.md`",
+    ja: "コーディング前に `.specwriter/features/` に仕様を作成。命名: `page-NN-<名前>.md`, `common-NN-<名前>.md`, `api-NN-<名前>.md`",
+    zh: "编码前在 `.specwriter/features/` 中创建规范。命名: `page-NN-<名称>.md`, `common-NN-<名称>.md`, `api-NN-<名称>.md`",
   },
   "feature_rule_2": {
     en: "Include: what it does, pages, components, API endpoints, data flow, edge cases",
@@ -164,10 +164,10 @@ const strings: Record<string, Record<Lang, string>> = {
     zh: "需求变更时更新规范",
   },
   "feature_empty_rule": {
-    en: "`.specwriter/features/` is empty.\n\n**Tell AI:** `Read .specwriter/AI_CONTEXT.md and analyze this project. Write feature specs for all existing features in .specwriter/features/`",
-    ko: "`.specwriter/features/` 폴더가 비어있습니다.\n\n**AI에게 이렇게 말하세요:** `.specwriter/AI_CONTEXT.md 를 읽고 이 프로젝트를 분석해서 .specwriter/features/ 에 기능 명세를 작성해줘`",
-    ja: "`.specwriter/features/` が空です。\n\n**AIに伝えてください:** `.specwriter/AI_CONTEXT.md を読んでこのプロジェクトを分析し、.specwriter/features/ に機能仕様を作成してください`",
-    zh: "`.specwriter/features/` 为空。\n\n**告诉AI:** `读取 .specwriter/AI_CONTEXT.md 并分析项目，在 .specwriter/features/ 中创建功能规范`",
+    en: "`.specwriter/features/` is empty.\n\n**Tell AI:** `Read .specwriter/AI_CONTEXT.md and analyze this project. Write feature specs in .specwriter/features/ using this naming: page-01-<name>.md for page features, common-01-<name>.md for shared features, api-01-<name>.md for API features. Number them in order. Include all features of each page in one file.`",
+    ko: "`.specwriter/features/` 폴더가 비어있습니다.\n\n**AI에게 이렇게 말하세요:** `.specwriter/AI_CONTEXT.md 를 읽고 이 프로젝트를 분석해서 .specwriter/features/ 에 기능 명세를 작성해줘. 파일명 규칙: 화면별 기능은 page-01-<이름>.md, 공통 기능은 common-01-<이름>.md, API 기능은 api-01-<이름>.md. 번호순으로 작성하고, 한 화면의 모든 기능은 하나의 파일에 포함해줘.`",
+    ja: "`.specwriter/features/` が空です。\n\n**AIに伝えてください:** `.specwriter/AI_CONTEXT.md を読んでプロジェクトを分析し、.specwriter/features/ に機能仕様を作成してください。命名規則：画面別機能は page-01-<名前>.md、共通機能は common-01-<名前>.md、API機能は api-01-<名前>.md。番号順に作成し、各画面の全機能を1ファイルにまとめてください。`",
+    zh: "`.specwriter/features/` 为空。\n\n**告诉AI:** `读取 .specwriter/AI_CONTEXT.md 并分析项目，在 .specwriter/features/ 中创建功能规范。命名规则：页面功能用 page-01-<名称>.md，公共功能用 common-01-<名称>.md，API功能用 api-01-<名称>.md。按编号排序，每个页面的所有功能放在一个文件中。`",
   },
   "feature_intro": {
     en: "When building a new feature:",
