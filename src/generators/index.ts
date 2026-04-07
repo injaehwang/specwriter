@@ -12,6 +12,7 @@ export async function generateOutput(
 
   await fs.mkdir(outputDir, { recursive: true });
   await fs.mkdir(path.join(outputDir, "components"), { recursive: true });
+  await fs.mkdir(path.join(outputDir, "features"), { recursive: true });
 
   // Single JSON index for MCP queries
   await writeJson(path.join(outputDir, "index.json"), {

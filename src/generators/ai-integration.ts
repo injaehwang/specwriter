@@ -402,10 +402,26 @@ function buildFullContext(
     L.push("");
   }
 
+  // ─── Features ───
+  L.push("## Features");
+  L.push("");
+  L.push("When building a new feature:");
+  L.push("1. Create `.specwriter/features/<name>.md` with the full spec before coding");
+  L.push("2. Include: what it does, pages, components, API endpoints, data flow, edge cases");
+  L.push("3. Implement based on the spec");
+  L.push("4. Update the spec when requirements change");
+  L.push("");
+
+  // List existing features if any
+  if (spec.directories.some((d) => d.path.includes("features"))) {
+    L.push("Existing features: check `.specwriter/features/` for current specs.");
+  }
+
   // ─── Reference ───
   L.push("## Details");
   L.push("");
-  L.push("Use MCP tool `get_component(name)` for individual component specs.");
+  L.push("- `.specwriter/components/<name>.md` — component specs");
+  L.push("- `.specwriter/features/<name>.md` — feature specs");
   L.push("");
 
   return L.join("\n");
