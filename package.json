@@ -1,6 +1,6 @@
 {
   "name": "specwriter",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "description": "Analyze existing projects and generate comprehensive specifications for AI coding assistants",
   "type": "module",
   "main": "dist/index.js",

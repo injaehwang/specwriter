@@ -3,9 +3,8 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import { DEFAULT_CONFIG, type AnalysisConfig } from "../../types/spec.js";
 import { runAnalysis } from "../../core/analyzer.js";
-import { figmaUrlToWireframe, parseFigmaUrl } from "../../features/figma.js";
+import { figmaUrlToWireframe } from "../../features/figma.js";
 import { wireframeToMarkdown, extractComponentsFromWireframe } from "../../features/wireframe.js";
-import { createFeature, addPageToFeature, addComponentToFeature, getFeature } from "../../features/manager.js";
 
 export const initCommand = new Command("init")
   .description("Initialize specwriter and analyze the project")
@@ -44,7 +43,6 @@ export const initCommand = new Command("init")
         aiTargets: DEFAULT_CONFIG.aiTargets,
         figma: {
           url: "",
-          pages: {},
         },
       };
       await fs.writeFile(configPath, JSON.stringify(config, null, 2) + "\n");
@@ -66,7 +64,7 @@ export const initCommand = new Command("init")
       aiTargets: opts.aiTarget ?? DEFAULT_CONFIG.aiTargets,
     };
 
-    let figmaConfig: { url?: string; pages?: Record<string, string> } = {};
+    let figmaConfig: { url?: string } = {};
 
     if (existingConfig) {
       try {
@@ -104,92 +102,34 @@ export const initCommand = new Command("init")
 async function importFigmaDesigns(
   root: string,
   output: string,
-  figmaConfig: { url?: string; pages?: Record<string, string> },
+  figmaConfig: { url?: string },
 ) {
-  // Find Figma token from .env files or system env
   const token = await findFigmaToken(root);
   if (!token) {
-    console.log("  Figma: config found but no FIGMA_TOKEN in .env — skipping\n");
+    console.log("  Figma: no FIGMA_TOKEN in .env — skipping\n");
     return;
   }
 
   if (!figmaConfig.url) return;
 
   const specDir = path.join(root, output);
-  const parsed = parseFigmaUrl(figmaConfig.url);
-  if (!parsed) {
-    console.log("  Figma: invalid URL in config — skipping\n");
-    return;
-  }
 
-  console.log("  Figma: importing designs...");
+  console.log("  Figma: importing...");
 
-  const pages = figmaConfig.pages || {};
-  const pageEntries = Object.entries(pages);
+  try {
+    // Just URL — auto-fetches all top-level frames
+    const wireframe = await figmaUrlToWireframe(figmaConfig.url, token);
+    const md = wireframeToMarkdown(wireframe);
+    const extracted = extractComponentsFromWireframe(wireframe);
 
-  if (pageEntries.length > 0) {
-    // Import specific pages by node-id
-    for (const [pageName, nodeId] of pageEntries) {
-      try {
-        const nodeIdColon = nodeId.replace(/-/g, ":");
-        const url = `${figmaConfig.url}?node-id=${nodeId}`;
-        const route = "/" + pageName.toLowerCase().replace(/\s+/g, "-");
-        const wireframe = await figmaUrlToWireframe(url, token, pageName, route);
-        const md = wireframeToMarkdown(wireframe);
-        const extracted = extractComponentsFromWireframe(wireframe);
+    const wireframeDir = path.join(specDir, "wireframes");
+    await fs.mkdir(wireframeDir, { recursive: true });
+    const fileName = wireframe.pageName.toLowerCase().replace(/\s+/g, "-");
+    await fs.writeFile(path.join(wireframeDir, `${fileName}.md`), md);
 
-        // Save wireframe
-        const wireframeDir = path.join(specDir, "wireframes");
-        await fs.mkdir(wireframeDir, { recursive: true });
-        const fileName = pageName.toLowerCase().replace(/\s+/g, "-");
-        await fs.writeFile(path.join(wireframeDir, `${fileName}.md`), md);
-
-        // Create feature
-        const slug = fileName;
-        let feature = await getFeature(specDir, slug);
-        if (!feature) {
-          await createFeature(specDir, pageName, `Imported from Figma`, null);
-          feature = await getFeature(specDir, slug);
-        }
-        if (feature) {
-          await addPageToFeature(specDir, slug, {
-            route,
-            description: `${pageName} (from Figma)\n\n${md}`,
-            components: extracted.map((c) => c.name),
-          });
-          for (const comp of extracted) {
-            if (!feature.components.some((c) => c.name === comp.name)) {
-              await addComponentToFeature(specDir, slug, {
-                name: comp.name,
-                description: `${comp.role} component (from Figma)`,
-                props: [],
-                isNew: true,
-              });
-            }
-          }
-        }
-
-        console.log(`  Figma: ✓ ${pageName} — ${extracted.length} components`);
-      } catch (err) {
-        console.log(`  Figma: ✗ ${pageName} — ${(err as Error).message}`);
-      }
-    }
-  } else {
-    // Import top-level frames from file
-    try {
-      const wireframe = await figmaUrlToWireframe(figmaConfig.url, token);
-      const md = wireframeToMarkdown(wireframe);
-      const extracted = extractComponentsFromWireframe(wireframe);
-
-      const wireframeDir = path.join(specDir, "wireframes");
-      await fs.mkdir(wireframeDir, { recursive: true });
-      const fileName = wireframe.pageName.toLowerCase().replace(/\s+/g, "-");
-      await fs.writeFile(path.join(wireframeDir, `${fileName}.md`), md);
-
-      console.log(`  Figma: ✓ ${wireframe.pageName} — ${extracted.length} components`);
-    } catch (err) {
-      console.log(`  Figma: ✗ ${(err as Error).message}`);
-    }
+    console.log(`  Figma: ✓ ${wireframe.pageName} — ${extracted.length} components`);
+  } catch (err) {
+    console.log(`  Figma: ✗ ${(err as Error).message}`);
   }
 
   console.log("");

@@ -1,12 +1,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { SpecOutput, AnalysisConfig } from "../types/spec.js";
+import { ComponentInfo } from "../types/component.js";
 import { toolingToAiInstructions } from "../analyzers/tooling.js";
 import { buildMcpServerConfigs } from "../analyzers/mcp-recommendations.js";
 import { resolveEnvVars } from "../analyzers/env-resolver.js";
 import { inferServiceProfile, detectCodePatterns } from "../analyzers/service-inference.js";
-import { analyzeComponentUsage, usageGuideToMarkdown } from "../analyzers/usage-patterns.js";
-import { analyzePageTemplate, pageTemplateToMarkdown } from "../analyzers/page-templates.js";
 import { analyzeApiPatterns, apiPatternsToMarkdown } from "../analyzers/api-patterns.js";
 import { detectUiPatterns, uiPatternsToMarkdown } from "../analyzers/ui-patterns.js";
 
@@ -235,32 +234,15 @@ async function writeUniversalContext(
 ): Promise<void> {
   const { project, components, pageTree } = spec;
 
-  // Analyze patterns
-  const usageGuides = analyzeComponentUsage(components);
-  const pageTemplate = analyzePageTemplate(components, pageTree.routes, project.framework.id);
   const apiPatterns = await analyzeApiPatterns(config.root, components, pageTree.routes);
   const uiPatterns = detectUiPatterns(components);
 
-  // Build main AI_CONTEXT.md — compact, essential
-  const content = buildFullContext(spec, pageTemplate, apiPatterns, uiPatterns);
+  const content = buildFullContext(spec, apiPatterns, uiPatterns);
   await fs.writeFile(path.join(outputDir, "AI_CONTEXT.md"), content);
-
-  // Write detailed component usage guide (separate file)
-  if (usageGuides.length > 0) {
-    const topGuides = usageGuides
-      .filter((g) => g.usageSites.length > 0 || g.variants.length > 0)
-      .slice(0, 30);
-    if (topGuides.length > 0) {
-      const guideContent = "# Component Usage Guide\n\n" +
-        topGuides.map((g) => usageGuideToMarkdown(g)).join("\n---\n\n");
-      await fs.writeFile(path.join(outputDir, "components", "_usage.md"), guideContent);
-    }
-  }
 }
 
 function buildFullContext(
   spec: SpecOutput,
-  pageTemplate: ReturnType<typeof analyzePageTemplate>,
   apiPatterns: Awaited<ReturnType<typeof analyzeApiPatterns>>,
   uiPatterns: ReturnType<typeof detectUiPatterns>,
 ): string {
@@ -398,33 +380,84 @@ function buildFullContext(
     L.push("");
   }
 
-  // ─── Page template ───
-  if (pageTemplate.templateCode) {
-    L.push(pageTemplateToMarkdown(pageTemplate));
-  }
-
   // ─── API patterns ───
   if (apiPatterns.endpoints.length > 0 || apiPatterns.apiUtilFile) {
     L.push(apiPatternsToMarkdown(apiPatterns));
   }
 
-  // ─── UI patterns ───
+  // ─── UI patterns (from actual usage graph, not hardcoded) ───
   const uiMd = uiPatternsToMarkdown(uiPatterns);
   if (uiMd) {
     L.push(uiMd);
   }
 
+  // ─── Component tree (replaces ASCII wireframe) ───
+  const componentTree = buildComponentTree(components);
+  if (componentTree) {
+    L.push("## Component Tree");
+    L.push("");
+    L.push("```");
+    L.push(componentTree);
+    L.push("```");
+    L.push("");
+  }
+
   // ─── Reference ───
   L.push("## Details");
   L.push("");
-  L.push("- `.specwriter/components/<name>.md` — individual component specs");
-  L.push("- `.specwriter/components/_usage.md` — component usage guide with examples");
-  if (pageRoutes.length > 0) {
-    L.push("- `.specwriter/pages/<name>.md` — page specs with wireframes");
-  }
+  L.push("Use MCP tool `get_component(name)` for individual component specs.");
   L.push("");
 
   return L.join("\n");
+}
+
+function buildComponentTree(components: ComponentInfo[]): string | null {
+  if (components.length === 0) return null;
+
+  // Build parent→children map from actual usage
+  const childMap = new Map<string, string[]>();
+  const compSet = new Set(components.map((c) => c.name));
+  const hasParent = new Set<string>();
+
+  for (const comp of components) {
+    const children = comp.children.filter((c) => compSet.has(c));
+    if (children.length > 0) {
+      childMap.set(comp.name, children);
+      for (const child of children) hasParent.add(child);
+    }
+  }
+
+  // Root components: used but not children of anything
+  const roots = components
+    .filter((c) => !hasParent.has(c.name) && (c.type === "page" || c.type === "layout" || childMap.has(c.name)))
+    .slice(0, 10);
+
+  if (roots.length === 0) return null;
+
+  const lines: string[] = [];
+  const rendered = new Set<string>();
+
+  function render(name: string, indent: number) {
+    if (rendered.has(name) || indent > 4) return;
+    rendered.add(name);
+    const prefix = "  ".repeat(indent);
+    const comp = components.find((c) => c.name === name);
+    const typeTag = comp?.type && comp.type !== "component" ? ` [${comp.type}]` : "";
+    lines.push(`${prefix}${name}${typeTag}`);
+    const children = childMap.get(name) || [];
+    for (const child of children.slice(0, 6)) {
+      render(child, indent + 1);
+    }
+    if (children.length > 6) {
+      lines.push(`${prefix}  ... +${children.length - 6} more`);
+    }
+  }
+
+  for (const root of roots) {
+    render(root.name, 0);
+  }
+
+  return lines.length > 0 ? lines.join("\n") : null;
 }
 
 // ─── Injection into existing AI config files ───

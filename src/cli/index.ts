@@ -4,7 +4,6 @@ import { analyzeCommand } from "./commands/analyze.js";
 import { initCommand } from "./commands/init.js";
 import { infoCommand } from "./commands/info.js";
 import { serveCommand } from "./commands/serve.js";
-import { featureCommand } from "./commands/feature.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../../../package.json");
@@ -18,4 +17,3 @@ cli.addCommand(analyzeCommand);
 cli.addCommand(initCommand);
 cli.addCommand(infoCommand);
 cli.addCommand(serveCommand);
-cli.addCommand(featureCommand);
