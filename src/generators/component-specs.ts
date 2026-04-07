@@ -114,7 +114,7 @@ function buildComponentMarkdown(comp: ComponentInfo): string {
     for (const prop of comp.props) {
       const def = prop.defaultValue || "-";
       lines.push(
-        `| \`${prop.name}\` | \`${prop.type}\` | ${prop.required ? "Yes" : "No"} | ${def} |`
+        `| \`${prop.name}\` | \`${prop.type === "unknown" ? "-" : prop.type}\` | ${prop.required ? "Yes" : "No"} | ${def} |`
       );
     }
     lines.push("");

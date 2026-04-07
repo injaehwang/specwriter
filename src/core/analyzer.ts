@@ -102,7 +102,7 @@ export async function runAnalysis(
     root: config.root,
     framework: frameworkInfo,
     techStack: {
-      language: (techStack.language as any) || "typescript",
+      language: (techStack.language as any) || "javascript",
       styling: techStack.styling || [],
       stateManagement: techStack.stateManagement || [],
       testing: techStack.testing || [],
@@ -167,6 +167,9 @@ export async function runAnalysis(
     routes = await adapter.extractRoutes(config.root, config);
     progressDone(`Found ${routes.length} routes`);
   }
+
+  // Fix language detection after components are available
+  projectInfo.techStack.language = detectLanguage(config.root, components);
 
   // 6. Detect conventions (ACTUALLY analyze, not hardcode)
   progress("Analyzing conventions...");
@@ -483,7 +486,7 @@ async function detectRealConventions(
   components: ComponentInfo[]
 ): Promise<any> {
   const naming: Record<string, Record<string, number>> = {
-    components: {}, files: {}, functions: {}, variables: {}, directories: {},
+    components: {}, files: {}, functions: {}, variables: {}, directories: {}, cssClasses: {},
   };
 
   for (const comp of components) {
@@ -506,9 +509,10 @@ async function detectRealConventions(
     }
   }
 
-  const mostCommon = (counts: Record<string, number>): string => {
+  const mostCommon = (counts: Record<string, number> | undefined): string => {
+    if (!counts) return "";
     const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-    return sorted[0]?.[0] || "unknown";
+    return sorted[0]?.[0] || "";
   };
 
   // Detect import patterns
@@ -558,9 +562,9 @@ async function detectRealConventions(
     naming: {
       components: mostCommon(naming.components),
       files: mostCommon(naming.files),
-      functions: "camelCase",
-      variables: "camelCase",
-      cssClasses: "unknown",
+      functions: mostCommon(naming.functions) || "camelCase",
+      variables: mostCommon(naming.variables) || "camelCase",
+      cssClasses: mostCommon(naming.cssClasses) || "unknown",
       directories: mostCommon(naming.directories),
     },
     patterns: [],
@@ -728,6 +732,20 @@ function detectBuildTool(pkg: Record<string, unknown> | null): string {
   if ("turbopack" in deps) return "Turbopack";
   if ("esbuild" in deps) return "esbuild";
   return "unknown";
+}
+
+function detectLanguage(_root: string, components: ComponentInfo[]): "typescript" | "javascript" | "mixed" {
+  let tsCount = 0;
+  let jsCount = 0;
+  for (const c of components) {
+    const ext = c.filePath.split(".").pop() || "";
+    if (ext === "ts" || ext === "tsx") tsCount++;
+    else if (ext === "js" || ext === "jsx" || ext === "vue" || ext === "svelte") jsCount++;
+  }
+  if (tsCount === 0 && jsCount > 0) return "javascript";
+  if (jsCount === 0 && tsCount > 0) return "typescript";
+  if (tsCount > 0 && jsCount > 0) return "mixed";
+  return "javascript";
 }
 
 async function detectPackageManager(root: string): Promise<"npm" | "yarn" | "pnpm" | "bun"> {
