@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import path from "node:path";
+import fs from "node:fs/promises";
 import {
   createFeature, getFeature, listFeatures, updateFeature,
   addPageToFeature, addComponentToFeature, addApiToFeature,
@@ -131,4 +132,74 @@ featureCommand
     const result = await updateFeature(specDir, slug, updates);
     if (!result) { console.log(`\n  Feature "${feature}" not found.\n`); return; }
     console.log(`\n  "${result.name}" → [${result.status}]\n`);
+  });
+
+featureCommand
+  .command("figma <url>")
+  .description("Import a Figma design as wireframe spec")
+  .requiredOption("-t, --token <token>", "Figma personal access token (or set FIGMA_TOKEN env)")
+  .option("-f, --feature <name>", "Feature to attach wireframe to")
+  .option("-n, --name <name>", "Override page name")
+  .option("-r, --route <route>", "Page route")
+  .action(async (url: string, opts) => {
+    const { figmaUrlToWireframe } = await import("../../features/figma.js");
+    const { wireframeToMarkdown, extractComponentsFromWireframe } = await import("../../features/wireframe.js");
+
+    const token = opts.token || process.env.FIGMA_TOKEN;
+    if (!token) {
+      console.log("\n  Error: Figma token required. Use --token or set FIGMA_TOKEN env.\n");
+      return;
+    }
+
+    console.log("\n  Fetching from Figma...");
+
+    try {
+      const wireframe = await figmaUrlToWireframe(url, token, opts.name, opts.route);
+      const md = wireframeToMarkdown(wireframe);
+      const extracted = extractComponentsFromWireframe(wireframe);
+
+      // Save wireframe
+      const specDir = path.resolve(".specwriter");
+      const wireframeDir = path.join(specDir, "wireframes");
+      await fs.mkdir(wireframeDir, { recursive: true });
+      const fileName = wireframe.pageName.toLowerCase().replace(/\s+/g, "-");
+      await fs.writeFile(path.join(wireframeDir, `${fileName}.md`), md);
+
+      // Attach to feature if specified
+      if (opts.feature) {
+        const slug = opts.feature.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+        let feature = await getFeature(specDir, slug);
+        if (!feature) {
+          await createFeature(specDir, opts.feature, `Imported from Figma: ${wireframe.pageName}`, null);
+          feature = await getFeature(specDir, slug);
+        }
+        if (feature) {
+          await addPageToFeature(specDir, slug, {
+            route: wireframe.route,
+            description: `${wireframe.pageName} (from Figma)\n\n${md}`,
+            components: extracted.map((c) => c.name),
+          });
+          for (const comp of extracted) {
+            if (!feature.components.some((c) => c.name === comp.name)) {
+              await addComponentToFeature(specDir, slug, {
+                name: comp.name,
+                description: `${comp.role} component (from Figma)`,
+                props: [],
+                isNew: true,
+              });
+            }
+          }
+        }
+      }
+
+      console.log(`\n  Imported: ${wireframe.pageName}`);
+      console.log(`  Sections: ${wireframe.sections.length}`);
+      console.log(`  Components: ${extracted.map((c) => c.name).join(", ")}`);
+      console.log(`  Saved: .specwriter/wireframes/${fileName}.md`);
+      if (opts.feature) console.log(`  Attached to feature: ${opts.feature}`);
+      console.log("");
+      console.log(md);
+    } catch (err) {
+      console.log(`\n  Error: ${(err as Error).message}\n`);
+    }
   });

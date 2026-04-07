@@ -14,6 +14,7 @@ import {
   buildWireframe, extractComponentsFromWireframe, wireframeToMarkdown,
   type WireframeSection,
 } from "../features/wireframe.js";
+import { figmaUrlToWireframe, parseFigmaUrl } from "../features/figma.js";
 
 let projectRoot: string;
 let specDir: string;
@@ -391,6 +392,75 @@ export async function startMcpServer(root: string): Promise<void> {
           text: `${md}\n\n_${extracted.length} components extracted from wireframe._`,
         }],
       };
+    }
+  );
+
+  // ─── Figma Tools ───
+
+  server.tool(
+    "import_figma",
+    "Import a Figma design and convert it to a wireframe specification. Extracts frames, components, layout structure, and text content. Requires a Figma personal access token.",
+    {
+      url: z.string().describe("Figma URL (e.g. https://www.figma.com/design/FILEKEY/name?node-id=X-Y)"),
+      token: z.string().describe("Figma personal access token"),
+      feature: z.string().optional().describe("Feature name to attach wireframe to (creates if not exists)"),
+      pageName: z.string().optional().describe("Override page name (default: from Figma frame name)"),
+      route: z.string().optional().describe("Page route (default: inferred from name)"),
+    },
+    async ({ url, token, feature, pageName, route }) => {
+      try {
+        const wireframe = await figmaUrlToWireframe(url, token, pageName || undefined, route || undefined);
+        const md = wireframeToMarkdown(wireframe);
+        const extracted = extractComponentsFromWireframe(wireframe);
+
+        // Save wireframe file
+        const wireframeDir = path.join(specDir, "wireframes");
+        await fs.mkdir(wireframeDir, { recursive: true });
+        const fileName = wireframe.pageName.toLowerCase().replace(/\s+/g, "-");
+        await fs.writeFile(path.join(wireframeDir, `${fileName}.md`), md);
+
+        // Attach to feature if specified
+        if (feature) {
+          const slug = feature.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+          let existingFeature = await getFeature(specDir, slug);
+          if (!existingFeature) {
+            await createFeature(specDir, feature, `Imported from Figma: ${wireframe.pageName}`, null);
+            existingFeature = await getFeature(specDir, slug);
+          }
+
+          if (existingFeature) {
+            await addPageToFeature(specDir, slug, {
+              route: wireframe.route,
+              description: `${wireframe.pageName} (from Figma)\n\n${md}`,
+              components: extracted.map((c) => c.name),
+            });
+
+            for (const comp of extracted) {
+              const exists = existingFeature.components.some((c) => c.name === comp.name);
+              if (!exists) {
+                await addComponentToFeature(specDir, slug, {
+                  name: comp.name,
+                  description: `${comp.role} component (from Figma design)`,
+                  props: [],
+                  isNew: true,
+                });
+              }
+            }
+          }
+        }
+
+        const summary = [
+          `Imported from Figma: **${wireframe.pageName}**`,
+          `Sections: ${wireframe.sections.length}`,
+          `Components extracted: ${extracted.length} (${extracted.map((c) => c.name).join(", ")})`,
+          "",
+          md,
+        ].join("\n");
+
+        return { content: [{ type: "text" as const, text: summary }] };
+      } catch (err) {
+        return { content: [{ type: "text" as const, text: `Figma import error: ${(err as Error).message}` }] };
+      }
     }
   );
 
