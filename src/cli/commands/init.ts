@@ -3,6 +3,9 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import { DEFAULT_CONFIG, type AnalysisConfig } from "../../types/spec.js";
 import { runAnalysis } from "../../core/analyzer.js";
+import { figmaUrlToWireframe, parseFigmaUrl } from "../../features/figma.js";
+import { wireframeToMarkdown, extractComponentsFromWireframe } from "../../features/wireframe.js";
+import { createFeature, addPageToFeature, addComponentToFeature, getFeature } from "../../features/manager.js";
 
 export const initCommand = new Command("init")
   .description("Initialize specwriter and analyze the project")
@@ -39,6 +42,10 @@ export const initCommand = new Command("init")
         wireframes: true,
         format: DEFAULT_CONFIG.format,
         aiTargets: DEFAULT_CONFIG.aiTargets,
+        figma: {
+          url: "",
+          pages: {},
+        },
       };
       await fs.writeFile(configPath, JSON.stringify(config, null, 2) + "\n");
       console.log("  Created specwriter.config.json\n");
@@ -46,7 +53,7 @@ export const initCommand = new Command("init")
 
     if (opts.configOnly) return;
 
-    // Run analysis automatically
+    // Load config
     const analysisConfig: AnalysisConfig = {
       root,
       output: DEFAULT_CONFIG.output,
@@ -59,7 +66,8 @@ export const initCommand = new Command("init")
       aiTargets: opts.aiTarget ?? DEFAULT_CONFIG.aiTargets,
     };
 
-    // If existing config, load it
+    let figmaConfig: { url?: string; pages?: Record<string, string> } = {};
+
     if (existingConfig) {
       try {
         const cfgContent = await fs.readFile(configPath, "utf-8");
@@ -72,8 +80,9 @@ export const initCommand = new Command("init")
         if (cfg.wireframes !== undefined) analysisConfig.wireframes = cfg.wireframes;
         if (cfg.format) analysisConfig.format = cfg.format;
         if (cfg.aiTargets) analysisConfig.aiTargets = cfg.aiTargets;
+        if (cfg.figma) figmaConfig = cfg.figma;
       } catch {
-        // Use defaults if config is invalid
+        // Use defaults
       }
     }
 
@@ -81,5 +90,131 @@ export const initCommand = new Command("init")
       (analysisConfig as any)._debug = true;
     }
 
+    // Run code analysis
     await runAnalysis(analysisConfig, true);
+
+    // Auto-import Figma if configured
+    if (figmaConfig.url) {
+      await importFigmaDesigns(root, analysisConfig.output, figmaConfig);
+    }
   });
+
+// ─── Figma auto-import ───
+
+async function importFigmaDesigns(
+  root: string,
+  output: string,
+  figmaConfig: { url?: string; pages?: Record<string, string> },
+) {
+  // Find Figma token from .env files or system env
+  const token = await findFigmaToken(root);
+  if (!token) {
+    console.log("  Figma: config found but no FIGMA_TOKEN in .env — skipping\n");
+    return;
+  }
+
+  if (!figmaConfig.url) return;
+
+  const specDir = path.join(root, output);
+  const parsed = parseFigmaUrl(figmaConfig.url);
+  if (!parsed) {
+    console.log("  Figma: invalid URL in config — skipping\n");
+    return;
+  }
+
+  console.log("  Figma: importing designs...");
+
+  const pages = figmaConfig.pages || {};
+  const pageEntries = Object.entries(pages);
+
+  if (pageEntries.length > 0) {
+    // Import specific pages by node-id
+    for (const [pageName, nodeId] of pageEntries) {
+      try {
+        const nodeIdColon = nodeId.replace(/-/g, ":");
+        const url = `${figmaConfig.url}?node-id=${nodeId}`;
+        const route = "/" + pageName.toLowerCase().replace(/\s+/g, "-");
+        const wireframe = await figmaUrlToWireframe(url, token, pageName, route);
+        const md = wireframeToMarkdown(wireframe);
+        const extracted = extractComponentsFromWireframe(wireframe);
+
+        // Save wireframe
+        const wireframeDir = path.join(specDir, "wireframes");
+        await fs.mkdir(wireframeDir, { recursive: true });
+        const fileName = pageName.toLowerCase().replace(/\s+/g, "-");
+        await fs.writeFile(path.join(wireframeDir, `${fileName}.md`), md);
+
+        // Create feature
+        const slug = fileName;
+        let feature = await getFeature(specDir, slug);
+        if (!feature) {
+          await createFeature(specDir, pageName, `Imported from Figma`, null);
+          feature = await getFeature(specDir, slug);
+        }
+        if (feature) {
+          await addPageToFeature(specDir, slug, {
+            route,
+            description: `${pageName} (from Figma)\n\n${md}`,
+            components: extracted.map((c) => c.name),
+          });
+          for (const comp of extracted) {
+            if (!feature.components.some((c) => c.name === comp.name)) {
+              await addComponentToFeature(specDir, slug, {
+                name: comp.name,
+                description: `${comp.role} component (from Figma)`,
+                props: [],
+                isNew: true,
+              });
+            }
+          }
+        }
+
+        console.log(`  Figma: ✓ ${pageName} — ${extracted.length} components`);
+      } catch (err) {
+        console.log(`  Figma: ✗ ${pageName} — ${(err as Error).message}`);
+      }
+    }
+  } else {
+    // Import top-level frames from file
+    try {
+      const wireframe = await figmaUrlToWireframe(figmaConfig.url, token);
+      const md = wireframeToMarkdown(wireframe);
+      const extracted = extractComponentsFromWireframe(wireframe);
+
+      const wireframeDir = path.join(specDir, "wireframes");
+      await fs.mkdir(wireframeDir, { recursive: true });
+      const fileName = wireframe.pageName.toLowerCase().replace(/\s+/g, "-");
+      await fs.writeFile(path.join(wireframeDir, `${fileName}.md`), md);
+
+      console.log(`  Figma: ✓ ${wireframe.pageName} — ${extracted.length} components`);
+    } catch (err) {
+      console.log(`  Figma: ✗ ${(err as Error).message}`);
+    }
+  }
+
+  console.log("");
+}
+
+async function findFigmaToken(root: string): Promise<string | null> {
+  // 1. System env
+  if (process.env.FIGMA_TOKEN) return process.env.FIGMA_TOKEN;
+
+  // 2. .env files
+  const envFiles = [".env", ".env.local", ".env.development"];
+  for (const envFile of envFiles) {
+    try {
+      const content = await fs.readFile(path.join(root, envFile), "utf-8");
+      for (const line of content.split("\n")) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("FIGMA_TOKEN=") || trimmed.startsWith("FIGMA_ACCESS_TOKEN=")) {
+          const value = trimmed.split("=").slice(1).join("=").trim().replace(/^["']|["']$/g, "");
+          if (value && !value.startsWith("<") && value !== "xxx") return value;
+        }
+      }
+    } catch {
+      // File doesn't exist
+    }
+  }
+
+  return null;
+}
