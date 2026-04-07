@@ -163,6 +163,12 @@ const strings: Record<string, Record<Lang, string>> = {
     ja: "要件変更時は仕様も更新してください",
     zh: "需求变更时更新规范",
   },
+  "feature_empty_rule": {
+    en: "If `.specwriter/features/` is empty, first analyze the existing code and write specs for current features.",
+    ko: "`.specwriter/features/` 폴더가 비어있다면, 먼저 기존 코드를 분석하여 현재 구현된 기능들의 명세를 작성하세요.",
+    ja: "`.specwriter/features/` が空の場合、まず既存コードを分析して現在の機能の仕様を作成してください。",
+    zh: "如果 `.specwriter/features/` 为空，请先分析现有代码并为当前功能编写规范。",
+  },
   "feature_intro": {
     en: "When building a new feature:",
     ko: "새 기능을 개발할 때:",

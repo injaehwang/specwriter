@@ -405,17 +405,13 @@ function buildFullContext(
   // ─── Features ───
   L.push(`## ${t("feature_spec_title", lang)}`);
   L.push("");
+  L.push(t("feature_empty_rule", lang));
+  L.push("");
   L.push(t("feature_intro", lang));
   L.push(`1. ${t("feature_rule_1", lang)}`);
   L.push(`2. ${t("feature_rule_2", lang)}`);
   L.push(`3. ${t("feature_rule_3", lang)}`);
   L.push(`4. ${t("feature_rule_4", lang)}`);
-  L.push("");
-
-  // List existing features if any
-  if (spec.directories.some((d) => d.path.includes("features"))) {
-    L.push("Existing features: check `.specwriter/features/` for current specs.");
-  }
 
   // ─── Reference ───
   L.push(`## ${t("details", lang)}`);
