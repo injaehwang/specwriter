@@ -164,10 +164,10 @@ const strings: Record<string, Record<Lang, string>> = {
     zh: "需求变更时更新规范",
   },
   "feature_empty_rule": {
-    en: "If `.specwriter/features/` is empty, first analyze the existing code and write specs for current features.",
-    ko: "`.specwriter/features/` 폴더가 비어있다면, 먼저 기존 코드를 분석하여 현재 구현된 기능들의 명세를 작성하세요.",
-    ja: "`.specwriter/features/` が空の場合、まず既存コードを分析して現在の機能の仕様を作成してください。",
-    zh: "如果 `.specwriter/features/` 为空，请先分析现有代码并为当前功能编写规范。",
+    en: "`.specwriter/features/` is empty. Analyze the project code and create a feature spec file for each existing feature.\n\nFor each feature, create `.specwriter/features/<name>.md` containing:\n- What the feature does\n- Related pages/routes\n- Components used\n- API endpoints\n- Data flow\n- Edge cases",
+    ko: "`.specwriter/features/` 폴더가 비어있습니다. 프로젝트 코드를 분석하여 현재 구현된 기능별로 명세 파일을 작성하세요.\n\n각 기능별로 `.specwriter/features/<기능명>.md` 파일을 생성하고 다음을 포함하세요:\n- 기능 설명\n- 관련 페이지/라우트\n- 사용하는 컴포넌트\n- API 엔드포인트\n- 데이터 흐름\n- 예외 케이스",
+    ja: "`.specwriter/features/` が空です。プロジェクトコードを分析し、既存の各機能について仕様ファイルを作成してください。\n\n各機能について `.specwriter/features/<機能名>.md` を作成し、以下を含めてください：\n- 機能の説明\n- 関連ページ/ルート\n- 使用コンポーネント\n- APIエンドポイント\n- データフロー\n- エッジケース",
+    zh: "`.specwriter/features/` 为空。请分析项目代码，为每个现有功能创建规范文件。\n\n为每个功能创建 `.specwriter/features/<功能名>.md`，包含：\n- 功能描述\n- 相关页面/路由\n- 使用的组件\n- API端点\n- 数据流\n- 边界情况",
   },
   "feature_intro": {
     en: "When building a new feature:",
