@@ -6,6 +6,7 @@ import { toolingToAiInstructions } from "../analyzers/tooling.js";
 import { buildMcpServerConfigs } from "../analyzers/mcp-recommendations.js";
 import { resolveEnvVars } from "../analyzers/env-resolver.js";
 import { inferServiceProfile, detectCodePatterns } from "../analyzers/service-inference.js";
+import { t, type Lang } from "../i18n.js";
 import { analyzeApiPatterns, apiPatternsToMarkdown } from "../analyzers/api-patterns.js";
 import { detectUiPatterns, uiPatternsToMarkdown } from "../analyzers/ui-patterns.js";
 
@@ -236,8 +237,9 @@ async function writeUniversalContext(
 
   const apiPatterns = await analyzeApiPatterns(config.root, components, pageTree.routes);
   const uiPatterns = detectUiPatterns(components);
+  const lang = ((config as any)._lang || "en") as Lang;
 
-  const content = buildFullContext(spec, apiPatterns, uiPatterns);
+  const content = buildFullContext(spec, apiPatterns, uiPatterns, lang);
   await fs.writeFile(path.join(outputDir, "AI_CONTEXT.md"), content);
 }
 
@@ -245,35 +247,33 @@ function buildFullContext(
   spec: SpecOutput,
   apiPatterns: Awaited<ReturnType<typeof analyzeApiPatterns>>,
   uiPatterns: ReturnType<typeof detectUiPatterns>,
+  lang: Lang = "en",
 ): string {
   const { project, rules, pageTree, components } = spec;
   const L: string[] = [];
 
-  // ─── Service profile inference ───
   const profile = inferServiceProfile(project, components, pageTree.routes);
   const codePatterns = detectCodePatterns(components);
 
-  // ─── Header: one-line summary ───
   L.push(`# ${project.name}`);
   L.push("");
   L.push(`> ${profile.summary}`);
   if (project.description) L.push(`> ${project.description}`);
   L.push("");
 
-  // ─── What this project does ───
   if (profile.domain.length > 0 || profile.features.length > 0) {
-    L.push("## What this project does");
+    L.push(`## ${t("what_this_project_does", lang)}`);
     L.push("");
     if (profile.domain.length > 0) {
-      L.push(`**Domain:** ${profile.domain.join(", ")}`);
+      L.push(`**${t("domain", lang)}:** ${profile.domain.join(", ")}`);
     }
-    L.push(`**Architecture:** ${profile.architecture}`);
-    if (profile.auth) L.push(`**Auth:** ${profile.auth}`);
+    L.push(`**${t("architecture", lang)}:** ${profile.architecture}`);
+    if (profile.auth) L.push(`**${t("auth", lang)}:** ${profile.auth}`);
     if (profile.dataPatterns.length > 0) {
-      L.push(`**Data:** ${profile.dataPatterns.join(", ")}`);
+      L.push(`**${t("data", lang)}:** ${profile.dataPatterns.join(", ")}`);
     }
     if (profile.features.length > 0) {
-      L.push(`**Features:** ${profile.features.join(", ")}`);
+      L.push(`**${t("features", lang)}:** ${profile.features.join(", ")}`);
     }
     L.push("");
   }
@@ -285,7 +285,7 @@ function buildFullContext(
   ];
   if (project.techStack.styling.length > 0) stackParts.push(project.techStack.styling.join("+"));
   if (project.techStack.stateManagement.length > 0) stackParts.push(project.techStack.stateManagement.join("+"));
-  L.push(`**Stack:** ${stackParts.join(" · ")} · ${project.techStack.packageManager}`);
+  L.push(`**${t("stack", lang)}:** ${stackParts.join(" · ")} · ${project.techStack.packageManager}`);
   L.push("");
 
   // ─── Project structure (only meaningful dirs, max 10) ───
@@ -293,7 +293,7 @@ function buildFullContext(
     .filter((d) => d.componentCount > 0 || d.role !== "Module")
     .slice(0, 10);
   if (meaningfulDirs.length > 0) {
-    L.push("## Structure");
+    L.push(`## ${t("structure", lang)}`);
     L.push("");
     for (const dir of meaningfulDirs) {
       L.push(`- \`${dir.path}/\` — ${dir.description}`);
@@ -306,7 +306,7 @@ function buildFullContext(
   const apiRoutes = pageTree.routes.filter((r) => r.isApiRoute);
 
   if (pageRoutes.length > 0) {
-    L.push("## Routes");
+    L.push(`## ${t("routes", lang)}`);
     L.push("");
     for (const route of pageRoutes.slice(0, 20)) {
       L.push(`- \`${route.path}\` → \`${route.filePath}\``);
@@ -316,7 +316,7 @@ function buildFullContext(
   }
 
   if (apiRoutes.length > 0) {
-    L.push("## API");
+    L.push(`## ${t("api", lang)}`);
     L.push("");
     for (const route of apiRoutes.slice(0, 15)) {
       L.push(`- \`${route.path}\` → \`${route.filePath}\``);
@@ -332,9 +332,9 @@ function buildFullContext(
     .slice(0, 25);
 
   if (keyComponents.length > 0) {
-    L.push("## Key Components");
+    L.push(`## ${t("key_components", lang)}`);
     L.push("");
-    L.push("| Component | File | Props |");
+    L.push(`| ${t("component", lang)} | ${t("file", lang)} | ${t("props", lang)} |`);
     L.push("|-----------|------|-------|");
     for (const comp of keyComponents) {
       const propsStr = comp.props.length > 0
@@ -372,7 +372,7 @@ function buildFullContext(
   }
 
   if (allRules.length > 0) {
-    L.push("## Rules");
+    L.push(`## ${t("rules", lang)}`);
     L.push("");
     for (const rule of allRules) {
       L.push(`- ${rule}`);
@@ -394,7 +394,7 @@ function buildFullContext(
   // ─── Component tree (replaces ASCII wireframe) ───
   const componentTree = buildComponentTree(components);
   if (componentTree) {
-    L.push("## Component Tree");
+    L.push(`## ${t("component_tree", lang)}`);
     L.push("");
     L.push("```");
     L.push(componentTree);
@@ -403,13 +403,13 @@ function buildFullContext(
   }
 
   // ─── Features ───
-  L.push("## Features");
+  L.push(`## ${t("feature_spec_title", lang)}`);
   L.push("");
-  L.push("When building a new feature:");
-  L.push("1. Create `.specwriter/features/<name>.md` with the full spec before coding");
-  L.push("2. Include: what it does, pages, components, API endpoints, data flow, edge cases");
-  L.push("3. Implement based on the spec");
-  L.push("4. Update the spec when requirements change");
+  L.push(t("feature_intro", lang));
+  L.push(`1. ${t("feature_rule_1", lang)}`);
+  L.push(`2. ${t("feature_rule_2", lang)}`);
+  L.push(`3. ${t("feature_rule_3", lang)}`);
+  L.push(`4. ${t("feature_rule_4", lang)}`);
   L.push("");
 
   // List existing features if any
@@ -418,10 +418,10 @@ function buildFullContext(
   }
 
   // ─── Reference ───
-  L.push("## Details");
+  L.push(`## ${t("details", lang)}`);
   L.push("");
-  L.push("- `.specwriter/components/<name>.md` — component specs");
-  L.push("- `.specwriter/features/<name>.md` — feature specs");
+  L.push(`- \`.specwriter/components/<name>.md\` — ${t("component_specs", lang)}`);
+  L.push(`- \`.specwriter/features/<name>.md\` — ${t("feature_specs", lang)}`);
   L.push("");
 
   return L.join("\n");

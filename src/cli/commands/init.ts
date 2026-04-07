@@ -14,6 +14,7 @@ export const initCommand = new Command("init")
   .option("--format <type>", "Output format: json, md, both", DEFAULT_CONFIG.format)
   .option("--ai-target <targets...>", "AI targets: claude, cursor", DEFAULT_CONFIG.aiTargets)
   .option("--debug", "Debug mode — show all scan details", false)
+  .option("--lang <code>", "Output language: en, ko, ja, zh (default: en)", "en")
   .action(async (targetPath: string, opts) => {
     const root = path.resolve(targetPath);
     const configPath = path.join(root, "specwriter.config.json");
@@ -41,6 +42,7 @@ export const initCommand = new Command("init")
         wireframes: true,
         format: DEFAULT_CONFIG.format,
         aiTargets: DEFAULT_CONFIG.aiTargets,
+        lang: opts.lang || "en",
         figma: {
           url: "",
         },
@@ -86,6 +88,16 @@ export const initCommand = new Command("init")
 
     if (opts.debug) {
       (analysisConfig as any)._debug = true;
+    }
+    (analysisConfig as any)._lang = opts.lang || "en";
+
+    // Load lang from existing config if not specified via CLI
+    if (existingConfig && opts.lang === "en") {
+      try {
+        const cfgContent = await fs.readFile(configPath, "utf-8");
+        const cfg = JSON.parse(cfgContent);
+        if (cfg.lang) (analysisConfig as any)._lang = cfg.lang;
+      } catch {}
     }
 
     // Run code analysis

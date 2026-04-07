@@ -1,0 +1,224 @@
+export type Lang = "en" | "ko" | "ja" | "zh";
+
+const strings: Record<string, Record<Lang, string>> = {
+  "what_this_project_does": {
+    en: "What this project does",
+    ko: "프로젝트 개요",
+    ja: "プロジェクト概要",
+    zh: "项目概述",
+  },
+  "domain": {
+    en: "Domain",
+    ko: "도메인",
+    ja: "ドメイン",
+    zh: "领域",
+  },
+  "architecture": {
+    en: "Architecture",
+    ko: "아키텍처",
+    ja: "アーキテクチャ",
+    zh: "架构",
+  },
+  "auth": {
+    en: "Auth",
+    ko: "인증",
+    ja: "認証",
+    zh: "认证",
+  },
+  "data": {
+    en: "Data",
+    ko: "데이터",
+    ja: "データ",
+    zh: "数据",
+  },
+  "features": {
+    en: "Features",
+    ko: "주요 기능",
+    ja: "主な機能",
+    zh: "主要功能",
+  },
+  "stack": {
+    en: "Stack",
+    ko: "기술 스택",
+    ja: "技術スタック",
+    zh: "技术栈",
+  },
+  "structure": {
+    en: "Structure",
+    ko: "프로젝트 구조",
+    ja: "プロジェクト構造",
+    zh: "项目结构",
+  },
+  "routes": {
+    en: "Routes",
+    ko: "라우트",
+    ja: "ルート",
+    zh: "路由",
+  },
+  "api": {
+    en: "API",
+    ko: "API 엔드포인트",
+    ja: "APIエンドポイント",
+    zh: "API端点",
+  },
+  "key_components": {
+    en: "Key Components",
+    ko: "주요 컴포넌트",
+    ja: "主要コンポーネント",
+    zh: "主要组件",
+  },
+  "component": {
+    en: "Component",
+    ko: "컴포넌트",
+    ja: "コンポーネント",
+    zh: "组件",
+  },
+  "file": {
+    en: "File",
+    ko: "파일",
+    ja: "ファイル",
+    zh: "文件",
+  },
+  "props": {
+    en: "Props",
+    ko: "Props",
+    ja: "Props",
+    zh: "Props",
+  },
+  "rules": {
+    en: "Rules",
+    ko: "규칙",
+    ja: "ルール",
+    zh: "规则",
+  },
+  "api_patterns": {
+    en: "API Patterns",
+    ko: "API 패턴",
+    ja: "APIパターン",
+    zh: "API模式",
+  },
+  "client": {
+    en: "Client",
+    ko: "클라이언트",
+    ja: "クライアント",
+    zh: "客户端",
+  },
+  "pattern": {
+    en: "Pattern",
+    ko: "패턴",
+    ja: "パターン",
+    zh: "模式",
+  },
+  "errors": {
+    en: "Errors",
+    ko: "에러 처리",
+    ja: "エラー処理",
+    zh: "错误处理",
+  },
+  "endpoints": {
+    en: "Endpoints",
+    ko: "엔드포인트",
+    ja: "エンドポイント",
+    zh: "端点",
+  },
+  "patterns": {
+    en: "Patterns",
+    ko: "패턴",
+    ja: "パターン",
+    zh: "模式",
+  },
+  "component_tree": {
+    en: "Component Tree",
+    ko: "컴포넌트 트리",
+    ja: "コンポーネントツリー",
+    zh: "组件树",
+  },
+  "feature_spec_title": {
+    en: "Features",
+    ko: "기능 명세",
+    ja: "機能仕様",
+    zh: "功能规范",
+  },
+  "feature_rule_1": {
+    en: "Create `.specwriter/features/<name>.md` with the full spec before coding",
+    ko: "코딩 전에 `.specwriter/features/<이름>.md`에 기능 명세를 먼저 작성하세요",
+    ja: "コーディング前に `.specwriter/features/<名前>.md` に仕様を作成してください",
+    zh: "编码前先在 `.specwriter/features/<名称>.md` 中创建完整规范",
+  },
+  "feature_rule_2": {
+    en: "Include: what it does, pages, components, API endpoints, data flow, edge cases",
+    ko: "포함 내용: 기능 설명, 페이지, 컴포넌트, API, 데이터 흐름, 예외 케이스",
+    ja: "含む内容：機能説明、ページ、コンポーネント、API、データフロー、エッジケース",
+    zh: "包含：功能描述、页面、组件、API端点、数据流、边界情况",
+  },
+  "feature_rule_3": {
+    en: "Implement based on the spec",
+    ko: "명세를 기반으로 구현하세요",
+    ja: "仕様に基づいて実装してください",
+    zh: "基于规范进行实现",
+  },
+  "feature_rule_4": {
+    en: "Update the spec when requirements change",
+    ko: "요구사항이 변경되면 명세도 업데이트하세요",
+    ja: "要件変更時は仕様も更新してください",
+    zh: "需求变更时更新规范",
+  },
+  "feature_intro": {
+    en: "When building a new feature:",
+    ko: "새 기능을 개발할 때:",
+    ja: "新機能を開発する際：",
+    zh: "开发新功能时：",
+  },
+  "details": {
+    en: "Details",
+    ko: "상세 정보",
+    ja: "詳細情報",
+    zh: "详细信息",
+  },
+  "more_components": {
+    en: "more components in",
+    ko: "개의 추가 컴포넌트:",
+    ja: "個の追加コンポーネント：",
+    zh: "个更多组件在",
+  },
+  "component_specs": {
+    en: "component specs",
+    ko: "컴포넌트 상세 스펙",
+    ja: "コンポーネント詳細仕様",
+    zh: "组件详细规范",
+  },
+  "feature_specs": {
+    en: "feature specs",
+    ko: "기능 명세",
+    ja: "機能仕様",
+    zh: "功能规范",
+  },
+  "shared_components": {
+    en: "Shared Components",
+    ko: "공유 컴포넌트",
+    ja: "共有コンポーネント",
+    zh: "共享组件",
+  },
+  "always_used_together": {
+    en: "Always used together",
+    ko: "항상 같이 사용됨",
+    ja: "常に一緒に使用",
+    zh: "总是一起使用",
+  },
+  "used_by": {
+    en: "used by",
+    ko: "사용처",
+    ja: "使用元",
+    zh: "被使用于",
+  },
+  "components_reused": {
+    en: "components reused across the project",
+    ko: "개의 컴포넌트가 프로젝트 전반에서 재사용됨",
+    ja: "個のコンポーネントがプロジェクト全体で再利用",
+    zh: "个组件在项目中被复用",
+  },
+};
+
+export function t(key: string, lang: Lang): string {
+  return strings[key]?.[lang] || strings[key]?.en || key;
+}
