@@ -1,83 +1,110 @@
 # specwriter
 
-Analyze existing projects and generate comprehensive specifications for AI coding assistants.
-
-One command to give every AI tool full context about your project — structure, components, conventions, and tooling.
+Spec-driven FE development tool. Analyze existing projects and generate specifications for AI coding assistants.
 
 ## Quick Start
 
 ```bash
-cd your-project
 npx specwriter init
 ```
 
-That's it. specwriter will:
+One command. Zero config. specwriter analyzes your project and generates everything AI needs to understand and work on it.
 
-1. Detect your framework (Next.js, React, Vue, Nuxt, Svelte, Angular)
-2. Extract routes, components, props, state, and dependencies
-3. Analyze your tooling (TypeScript, ESLint, Prettier config)
-4. Generate specs in `.specwriter/`
-5. Inject references into your AI configs (Claude, Cursor, Copilot, Gemini, etc.)
-6. Register MCP servers with API keys auto-resolved from `.env` files
+## What It Does
 
-## What Gets Generated
+```
+specwriter init
+  │
+  ├── Rust core (28x faster)     Scans all files, extracts components
+  ├── AI_CONTEXT.md              Project context for any AI
+  ├── components/*.md            Per-component specs
+  ├── features/                  Feature specs (AI writes these)
+  └── AI config injection        Claude, Cursor, Copilot, Gemini...
+```
+
+### Generated Output
 
 ```
 .specwriter/
-├── AI_CONTEXT.md            # Universal context for any AI
-├── mcp-servers.json         # Recommended MCP servers for your stack
-├── spec.json / spec.md      # Project overview, tech stack, structure
-├── rules.json / rules.md    # Coding conventions, naming patterns
-├── pages/
-│   ├── _index.json / .md    # Route map
-│   └── <name>.json / .md    # Per-page spec with ASCII wireframe
-└── components/
-    ├── _index.json / .md    # Component registry + dependency graph
-    └── <name>.json / .md    # Per-component: props, state, events
+├── AI_CONTEXT.md       # Project overview, patterns, rules, component tree
+├── index.json          # Structured data for MCP queries
+├── components/
+│   ├── Header.md       # Props, state, children, imports
+│   ├── LoginForm.md
+│   └── ...
+└── features/           # AI writes feature specs here before coding
 ```
 
-### Example: Generated Component Spec
+### AI_CONTEXT.md Example
 
 ```markdown
-# DataTable
+# my-app
 
-**Type:** component
-**File:** `src/components/DataTable.tsx`
-**Client Component**
+> Vue Education / LMS — 47 components
 
-## Props
+## 프로젝트 개요
 
-| Name       | Type                     | Required | Default |
-|------------|--------------------------|----------|---------|
-| `columns`  | `string[]`               | Yes      | -       |
-| `data`     | `Record<string, unknown>[]` | No    | []      |
-| `pageSize` | `number`                 | No       | 10      |
+**도메인:** Education / LMS
+**아키텍처:** Nuxt (SSR/SSG hybrid)
+**데이터:** Pinia + REST API
 
-## State
+**기술 스택:** Vue 3.4 · javascript · Tailwind CSS · pnpm
 
-| Name     | Type           | Source   | Initial |
-|----------|----------------|----------|---------|
-| `page`   | `number`       | useState | 0       |
-| `sortBy` | `string | null`| useState | null    |
+## 프로젝트 구조
+
+- `src/components/` — 공유 컴포넌트 (32개)
+- `src/pages/` — 페이지 컴포넌트
+- `src/stores/` — Pinia 스토어
+- `server/api/` — API 엔드포인트
+
+## 주요 컴포넌트
+
+| 컴포넌트 | 파일 | Props |
+|-----------|------|-------|
+| **LectureCard** | `src/components/LectureCard.vue` | title, instructor, duration |
+| **VideoPlayer** | `src/components/VideoPlayer.vue` | src, autoplay |
+| ...
+
+## 규칙
+
+- 모든 컴포넌트는 <script setup> 사용
+- Pinia 스토어는 src/stores/ 에 위치
+- API 호출은 composables/useApi.ts 사용
+
+## 패턴
+
+### Shared Components
+12 components reused across the project
+- `Modal` — used by 8 components
+- `Button` — used by 15 components
+
+## 컴포넌트 트리
+
+App
+  DefaultLayout
+    Header
+      NavMenu
+      UserAvatar
+    Sidebar
+      SidebarMenu
+  ...
+
+## 기능 명세
+
+`.specwriter/features/` 폴더가 비어있다면, 먼저 기존 코드를 분석하여
+현재 구현된 기능들의 명세를 작성하세요.
 ```
 
-### Example: Generated Wireframe
+## Multi-language
 
+```bash
+specwriter init --lang=ko    # 한글
+specwriter init --lang=ja    # 日本語
+specwriter init --lang=zh    # 中文
+specwriter init              # English (default)
 ```
-┌──────────────────────────────────────────────────────────┐
-│ ┌──────────────────────────────────────────────────────┐ │
-│ │ <Header>                                             │ │
-│ └──────────────────────────────────────────────────────┘ │
-├──────────────────────────────────────────────────────────┤
-│ ┌──────────────────────────────────────────────────────┐ │
-│ │ <StatCard>                                           │ │
-│ └──────────────────────────────────────────────────────┘ │
-├──────────────────────────────────────────────────────────┤
-│ ┌──────────────────────────────────────────────────────┐ │
-│ │ <DataTable>                                          │ │
-│ └──────────────────────────────────────────────────────┘ │
-└──────────────────────────────────────────────────────────┘
-```
+
+Language is saved in config — subsequent runs use the same language.
 
 ## AI Integration
 
@@ -85,126 +112,134 @@ specwriter auto-detects AI tools in your project and injects `.specwriter/` refe
 
 | AI Tool | Detection | Action |
 |---------|-----------|--------|
-| Claude Code | `CLAUDE.md` or `.claude/` | Appends reference + registers MCP server |
-| Cursor | `.cursor/` or `.cursorrules` | Creates `.cursor/rules/specwriter.mdc` + MCP |
+| Claude Code | `CLAUDE.md` or `.claude/` | Appends reference + registers MCP |
+| Cursor | `.cursor/` | Creates rule + registers MCP |
 | GitHub Copilot | `.github/` | Appends to `copilot-instructions.md` |
 | Gemini | `.gemini/` | Appends to `GEMINI.md` |
-| Windsurf | `.windsurf/` or `.windsurfrules` | Creates rule file or appends |
+| Windsurf | `.windsurf/` | Creates rule |
 | Cline | `.clinerules` | Appends reference |
-| JetBrains AI | `.aiassistant/` | Creates rule file |
-| Aider | `.aider.conf.yml` | Adds to `read:` section |
-| Continue.dev | `.continuerc.json` | Adds to `docs` array |
-| Tabnine | `.tabnine/` | Creates guideline file |
+| JetBrains AI | `.aiassistant/` | Creates rule |
 | OpenAI Codex | `AGENTS.md` | Appends reference |
+| Aider | `.aider.conf.yml` | Adds to `read:` |
+| Tabnine | `.tabnine/` | Creates guideline |
 
-Existing content is never deleted — specwriter uses `<!-- specwriter:start/end -->` markers for safe re-runs.
+Existing content is never deleted — uses `<!-- specwriter:start/end -->` markers.
 
 ## MCP Server
 
-specwriter includes a built-in MCP server that AI assistants can call during conversations.
+Built-in MCP server for AI assistants to query specs during conversations.
+
+```json
+// .claude/settings.local.json (auto-registered)
+{
+  "mcpServers": {
+    "specwriter": { "command": "npx", "args": ["-y", "specwriter", "serve", "."] }
+  }
+}
+```
 
 ### Tools
 
 | Tool | Description |
 |------|-------------|
-| `get_project_context` | Full project overview (tech stack, routes, components) |
-| `get_component(name)` | Component spec: props, state, events, children |
-| `get_page(route)` | Page spec with wireframe and component list |
-| `search_specs(query)` | Search through all specifications |
-| `get_dependencies(name)` | What a component uses and what uses it |
-| `get_rules` | Coding conventions and patterns |
-| `get_routes` | Complete route map |
-| `list_components` | All components with types and paths |
-| `update_specs` | Re-analyze project after code changes |
+| `get_project_context` | Full project overview |
+| `get_component(name)` | Component spec (props, state, children) |
+| `get_page(route)` | Page spec |
+| `search_specs(query)` | Search all specifications |
+| `get_dependencies(name)` | Component dependency graph |
+| `get_rules` | Coding conventions |
+| `get_routes` | Route map |
+| `list_components` | All components |
+| `update_specs` | Re-analyze after code changes |
 
-### Auto-Registration
+## Rust Core
 
-When you run `specwriter init`, MCP servers are automatically registered in your AI config files. No manual setup.
+Includes a tree-sitter based Rust binary for fast analysis:
 
-### Recommended MCP Servers
+| | Node.js | Rust |
+|---|---------|------|
+| 56 files | 2.8s | **18ms** |
+| 200 files | ~10s | **~50ms** |
 
-specwriter analyzes your `package.json` and recommends additional MCP servers:
+Windows binary included in npm package. Other platforms fall back to Node.js.
 
-| If your project uses | Recommended MCP |
-|---------------------|-----------------|
-| Any JS/TS project | Context7 (library docs) |
-| Supabase | `@supabase/mcp-server-supabase` |
-| Prisma | `@anthropic/mcp-server-prisma` |
-| PostgreSQL | `@anthropic/mcp-server-postgres` |
-| Stripe | `@stripe/mcp-server` |
-| Firebase | `@anthropic/mcp-server-firebase` |
-| Playwright | `@anthropic/mcp-server-playwright` |
-| GitHub | `@modelcontextprotocol/server-github` |
-| Sentry | `@sentry/mcp-server` |
+## Figma Integration
 
-API keys are auto-resolved from `.env`, `.env.local`, and system environment variables.
-
-## Tooling Analysis
-
-specwriter deep-analyzes your development tooling and generates "Rules for AI":
-
-```markdown
-## Rules for AI
-
-- TypeScript strict mode is ON — never use `any`, always handle null/undefined
-- Use path aliases for imports: `@/*`, `@/components/*`
-- Formatting: no semicolons, single quotes, 2-space indent (prettier)
-- Testing with vitest — test files: **/*.{test,spec}.{ts,tsx}
-- lint-staged runs on commit — code must pass lint before committing
+```json
+// specwriter.config.json
+{
+  "figma": {
+    "url": "https://figma.com/design/abc123/MyProject"
+  }
+}
 ```
 
-Analyzed tools: TypeScript config, ESLint (rules, extends, plugins), Prettier settings, testing framework, Git hooks (Husky, lint-staged, commitlint), CI/CD provider.
+```bash
+# .env
+FIGMA_TOKEN=figd_xxxxx
+```
+
+`specwriter init` auto-fetches Figma designs and generates wireframes.
+
+## Feature-Driven Development
+
+specwriter creates a `features/` folder where AI writes feature specs before coding:
+
+```markdown
+# Login Feature
+
+## 기능 설명
+이메일/비밀번호 로그인 + 소셜 로그인
+
+## 페이지
+- /login — 로그인 폼
+- /register — 회원가입
+
+## 컴포넌트
+- LoginForm — 이메일, 비밀번호 입력 + 유효성 검사
+- SocialLoginButtons — Google, GitHub 로그인
+
+## API
+- POST /api/auth/login — JWT 토큰 반환
+- POST /api/auth/register — 사용자 생성
+
+## 데이터 흐름
+LoginForm → onSubmit → POST /api/auth/login → JWT 저장 → 리다이렉트
+```
+
+AI reads this spec before implementing, and updates it when requirements change.
 
 ## Commands
 
 ```bash
-npx specwriter init [path]       # Analyze project + generate specs + setup AI integrations
-npx specwriter analyze [path]    # Re-analyze and regenerate specs
-npx specwriter info [path]       # Show detected framework info
-npx specwriter serve [path]      # Start MCP server (used by AI tools automatically)
+specwriter init [path]       # Analyze + generate specs + setup AI integrations
+specwriter analyze [path]    # Re-analyze and regenerate
+specwriter info [path]       # Show detected framework
+specwriter serve [path]      # Start MCP server
+specwriter --version         # Check version
+specwriter analyze --debug   # Debug mode
 ```
 
 ### Options
 
 ```
--o, --output <dir>       Output directory (default: .specwriter)
---framework <name>       Force framework (skip auto-detection)
---include <patterns...>  Include glob patterns
---exclude <patterns...>  Exclude glob patterns
---depth <n>              Component nesting depth (default: 3)
---no-wireframes          Skip wireframe generation
---format <type>          Output format: json, md, both (default: both)
---verbose                Verbose output
-```
-
-### Configuration
-
-Create `specwriter.config.json` for project-specific settings:
-
-```json
-{
-  "output": ".specwriter",
-  "include": ["src/**", "app/**", "pages/**"],
-  "exclude": ["**/*.test.*", "**/__tests__/**"],
-  "framework": "auto",
-  "depth": 3,
-  "wireframes": true,
-  "format": "both"
-}
+--lang <code>          Output language: en, ko, ja, zh
+--no-wireframes        Skip wireframe generation
+--format <type>        Output format: json, md, both
+--debug                Show all scan details
 ```
 
 ## Supported Frameworks
 
-| Framework | Routes | Components | Status |
-|-----------|--------|------------|--------|
-| Next.js (App Router) | File-based | TSX + Server/Client | Tested |
-| Next.js (Pages Router) | File-based | TSX | Tested |
-| React | React Router | TSX/JSX | Tested |
-| Vue | Vue Router | SFC (.vue) | Built |
-| Nuxt | File-based | SFC (.vue) | Built |
-| SvelteKit | File-based | .svelte | Built |
-| Angular | Module Router | Decorator-based | Built |
-| Generic | - | TSX/JSX/Vue/Svelte | Fallback |
+| Framework | Detection | Components | Routes |
+|-----------|-----------|------------|--------|
+| Next.js | App Router + Pages Router | TSX | File-based |
+| React | React Router | TSX/JSX | Config-based |
+| Vue | Vue Router | SFC (.vue) | Config-based |
+| Nuxt | File-based | SFC (.vue) | File-based |
+| SvelteKit | File-based | .svelte | File-based |
+| Angular | Module Router | Decorator-based | Config-based |
+| Generic | - | All | - |
 
 ## License
 
