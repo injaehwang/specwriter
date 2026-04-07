@@ -10,6 +10,10 @@ import {
   addPageToFeature, addComponentToFeature, addApiToFeature,
   type FeaturePage, type FeatureComponent, type FeatureApi,
 } from "../features/manager.js";
+import {
+  buildWireframe, extractComponentsFromWireframe, wireframeToMarkdown,
+  type WireframeSection,
+} from "../features/wireframe.js";
 
 let projectRoot: string;
 let specDir: string;
@@ -325,6 +329,68 @@ export async function startMcpServer(root: string): Promise<void> {
       const updated = await addApiToFeature(specDir, slug, api);
       if (!updated) return { content: [{ type: "text" as const, text: `Feature "${feature}" not found.` }] };
       return { content: [{ type: "text" as const, text: `Added ${method.toUpperCase()} ${apiPath} to feature "${updated.name}".` }] };
+    }
+  );
+
+  // ─── Wireframe Tools ───
+
+  server.tool(
+    "design_wireframe",
+    "Design an ASCII wireframe for a page. Define the layout sections (header, sidebar, main content areas, footer) with their components. The wireframe is saved to the feature spec and components are auto-extracted.",
+    {
+      feature: z.string().describe("Feature name or slug"),
+      pageName: z.string().describe("Page name (e.g. 'Login Page', 'Dashboard')"),
+      route: z.string().describe("Page route (e.g. /login, /dashboard)"),
+      sections: z.array(z.object({
+        name: z.string().describe("Section name (e.g. 'Header', 'Login Form', 'Stats Grid')"),
+        role: z.enum(["header", "nav", "sidebar", "main", "footer", "modal", "form", "list", "card", "section"]),
+        description: z.string().describe("What this section contains"),
+        components: z.array(z.string()).describe("Component names needed (e.g. ['LoginForm', 'SocialButtons'])"),
+        position: z.string().optional().describe("Position hint (e.g. 'top', 'left', 'center')"),
+      })).describe("Layout sections from top to bottom"),
+    },
+    async ({ feature, pageName, route, sections }) => {
+      const slug = feature.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
+      const wireframe = buildWireframe(pageName, route, sections as WireframeSection[]);
+      const md = wireframeToMarkdown(wireframe);
+
+      // Extract components from wireframe
+      const extracted = extractComponentsFromWireframe(wireframe);
+
+      // Save wireframe to feature
+      const existingFeature = await getFeature(specDir, slug);
+      if (existingFeature) {
+        await addPageToFeature(specDir, slug, {
+          route,
+          description: `${pageName}\n\n${md}`,
+          components: extracted.map((c) => c.name),
+        });
+
+        for (const comp of extracted) {
+          const exists = existingFeature.components.some((c) => c.name === comp.name);
+          if (!exists) {
+            await addComponentToFeature(specDir, slug, {
+              name: comp.name,
+              description: `${comp.role} component (from wireframe)`,
+              props: [],
+              isNew: true,
+            });
+          }
+        }
+      }
+
+      // Also save standalone wireframe file
+      const wireframeDir = path.join(specDir, "wireframes");
+      await fs.mkdir(wireframeDir, { recursive: true });
+      await fs.writeFile(path.join(wireframeDir, `${slug}-${route.replace(/\//g, "-").replace(/^-/, "")}.md`), md);
+
+      return {
+        content: [{
+          type: "text" as const,
+          text: `${md}\n\n_${extracted.length} components extracted from wireframe._`,
+        }],
+      };
     }
   );
 
