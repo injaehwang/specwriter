@@ -11,6 +11,8 @@ export async function generateOutput(
   const outputDir = path.resolve(config.root, config.output);
 
   await fs.mkdir(outputDir, { recursive: true });
+  await fs.mkdir(path.join(outputDir, "pages"), { recursive: true });
+  await fs.mkdir(path.join(outputDir, "layouts"), { recursive: true });
   await fs.mkdir(path.join(outputDir, "components"), { recursive: true });
   await fs.mkdir(path.join(outputDir, "features"), { recursive: true });
 

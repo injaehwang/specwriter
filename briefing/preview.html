@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>FE 개발에 AI 제대로 도입하기 — 다이어그램 미리보기</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #ffffff;
+    color: #000;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 20px;
+  }
+  h1 { font-size: 1.6em; border-bottom: 2px solid #999; padding-bottom: 8px; }
+  h2 { font-size: 1.2em; color: #444; margin-top: 48px; }
+  .mermaid {
+    background: #ffffff;
+    text-align: center;
+    margin: 20px 0;
+  }
+  hr { border: none; border-top: 1px solid #ccc; margin: 40px 0; }
+</style>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: {
+      primaryColor: '#fff9c4',
+      primaryBorderColor: '#e0a800',
+      primaryTextColor: '#000000',
+      lineColor: '#888888',
+      secondaryColor: '#ffffff',
+      tertiaryColor: '#ffffff',
+      background: '#ffffff',
+
+      // subgraph 배경을 흰색으로
+      clusterBkg: '#ffffff',
+      clusterBorder: '#cccccc',
+
+      cScale0: '#fff9c4',
+      cScale1: '#fff9c4',
+      cScale2: '#fff9c4',
+      cScale3: '#fff9c4',
+      cScale4: '#fff9c4',
+      cScale5: '#fff9c4',
+      cScale6: '#fff9c4',
+      cScale7: '#fff9c4',
+      cScale8: '#fff9c4',
+      cScale9: '#fff9c4',
+      cScale10: '#fff9c4',
+      cScale11: '#fff9c4',
+      cScalePeer0: '#e0a800',
+      cScalePeer1: '#e0a800',
+      cScalePeer2: '#e0a800',
+      cScalePeer3: '#e0a800',
+      cScalePeer4: '#e0a800',
+      cScalePeer5: '#e0a800',
+
+      // sequence diagram - 액터만 노란색, 배경 흰색
+      actorBkg: '#fff9c4',
+      actorBorder: '#e0a800',
+      actorTextColor: '#000000',
+      signalColor: '#333333',
+      signalTextColor: '#000000',
+      sequenceNumberColor: '#ffffff',
+      activationBkgColor: '#fff9c4',
+      activationBorderColor: '#e0a800',
+      noteBkgColor: '#fff9c4',
+      noteBorderColor: '#e0a800',
+
+      // pie
+      pie1: '#fff176',
+      pie2: '#fff9c4',
+      pieStrokeColor: '#e0a800',
+      pieTitleTextColor: '#000',
+      pieSectionTextColor: '#000',
+
+      // timeline/gantt - 배경 흰색, 태스크만 노란색
+      sectionBkgColor: '#ffffff',
+      sectionBkgColor2: '#ffffff',
+      altSectionBkgColor: '#fafafa',
+      taskBkgColor: '#fff9c4',
+      taskBorderColor: '#e0a800',
+      taskTextColor: '#000000',
+      doneTaskBkgColor: '#fff9c4',
+      doneTaskBorderColor: '#e0a800',
+      activeTaskBkgColor: '#fff9c4',
+      activeTaskBorderColor: '#e0a800',
+      gridColor: '#ddd'
+    }
+  });
+</script>
+</head>
+<body>
+
+<h1>01. 왜 지금인가</h1>
+<p>AI는 코드 자동완성이 아니라, 설계→구현→검증 전 과정의 협업 파트너다.<br>
+FE는 반복 패턴이 많고, 프레임워크 변화가 빠르며, 빠른 시각적 피드백이 중요해서 AI 활용과 특히 잘 맞는다.</p>
+
+<h2>FE에서 특히 중요한 이유</h2>
+<div class="mermaid">
+graph TD
+  ROOT((FE + AI))
+  ROOT --- A[반복 코드가 많다]
+  ROOT --- B[프레임워크 변화가 빠르다]
+  ROOT --- C[시각적 결과물]
+  A --- A1[컴포넌트]
+  A --- A2[폼]
+  A --- A3[테이블]
+  A --- A4[모달]
+  B --- B1[최신 문법 즉시 적용]
+  B --- B2[마이그레이션 가이드]
+  C --- C1[빠른 프로토타이핑]
+  C --- C2[피드백 루프 단축]
+</div>
+
+
+<hr>
+
+<h1>02. AI 도입 3단계 성숙도 모델</h1>
+<p>AI 도입에는 단계가 있다. 대부분의 팀은 L1에 머물러 있지만, 실질적 효과는 L2부터 나타난다.</p>
+
+<h2>전체 그림</h2>
+<div class="mermaid">
+graph LR
+  L1["L1 자동완성 (보조)"]
+  L2["L2 대화형 협업 (협업)"]
+  L3["L3 에이전트 위임 (주도)"]
+  L1 -->|"맥락 제공"| L2
+  L2 -->|"스펙 기반"| L3
+</div>
+
+<h2>L1: 자동완성</h2>
+<p>코드를 타이핑하면 AI가 다음 줄을 제안. 현재 파일 수준의 맥락만 이해하며, 프로젝트 전체 구조는 모른다.</p>
+<div class="mermaid">
+sequenceDiagram
+  participant D as 개발자
+  participant AI as AI
+  D->>AI: 코드 타이핑 중...
+  AI-->>D: 다음 줄 제안
+  D->>AI: Tab (수락)
+</div>
+
+<h2>L2: 대화형 협업</h2>
+<p>개발자가 의도와 맥락을 설명하면 AI가 구조적 결과물을 생성. 개발자는 What, AI는 How.</p>
+<div class="mermaid">
+sequenceDiagram
+  participant D as 개발자
+  participant AI as AI
+  D->>AI: 의도 + 맥락 + 요구사항 전달
+  AI-->>D: 구조적 결과물 생성
+  D->>AI: "여기 수정해줘"
+  AI-->>D: 수정된 결과물
+</div>
+
+<h2>L3: 에이전트 위임</h2>
+<p>스펙을 주면 AI가 프로젝트를 직접 분석하고, 파일 생성/수정, 테스트 실행까지 수행. 사람은 최종 리뷰어.</p>
+<div class="mermaid">
+sequenceDiagram
+  participant D as 개발자
+  participant AI as AI
+  participant FS as 프로젝트
+  D->>AI: 스펙/요구사항 전달
+  AI->>FS: 프로젝트 분석
+  AI->>FS: 파일 생성/수정
+  AI->>AI: 테스트 실행 + 디버깅
+  AI-->>D: 완성된 결과물
+  D-->>D: 리뷰 + 승인
+</div>
+
+
+<hr>
+
+<h1>03. FE 워크플로우별 AI 활용 포인트</h1>
+<p>설계부터 유지보수까지, 각 단계마다 AI가 도울 수 있는 영역이 있다.</p>
+
+<h2>어디에 AI를 쓸 수 있는가</h2>
+<div class="mermaid">
+graph LR
+  A[디자인 시안] --> B[설계]
+  B --> C[구현]
+  C --> D[테스트/리뷰]
+  D --> E[유지보수]
+  B -.- B1[AI: 타입 생성<br/>컴포넌트 트리<br/>접근성 분석]
+  C -.- C1[AI: 컴포넌트 생성<br/>상태관리<br/>API 연동]
+  D -.- D1[AI: 테스트 작성<br/>PR 리뷰 보조<br/>번들 분석]
+  E -.- E1[AI: 레거시 이해<br/>마이그레이션<br/>의존성 분석]
+</div>
+
+<h2>구현 단계 — L1 vs L2 차이</h2>
+<p>L1은 맥락 없이 일반적인 코드를 제안. L2는 프로젝트의 기존 컴포넌트, 스타일, 패턴을 반영한 결과물을 생성.</p>
+<div class="mermaid">
+graph TD
+  subgraph "L1: 맥락 없음"
+    A1["ProductCard()"] --> A2["일반적인 카드<br/>(우리 프로젝트와 무관)"]
+  end
+  subgraph "L2: 맥락 제공"
+    B1["ProductCard 만들어줘<br/>+ props 정의<br/>+ 기존 컴포넌트 지정<br/>+ 스타일 가이드"] --> B2["프로젝트 맥락을 반영한<br/>완성도 높은 결과물"]
+  end
+</div>
+
+<h2>테스트/리뷰 단계</h2>
+<p>테스트 케이스 목록은 개발자가 정하고, 코드 구현은 AI에게 맡긴다. 실패 시 AI가 수정 후 재실행.</p>
+<div class="mermaid">
+graph LR
+  A[개발자] -->|"테스트 케이스 목록"| B[AI]
+  B -->|"테스트 코드 생성"| C[테스트 파일]
+  C -->|"실행"| D{통과?}
+  D -->|Yes| E[커밋]
+  D -->|No| B
+</div>
+
+<h2>유지보수 단계</h2>
+<p>레거시 코드 분석과 Options API → Composition API 마이그레이션을 AI로 자동화할 수 있다.</p>
+<div class="mermaid">
+graph LR
+  A[Options API<br/>레거시 컴포넌트] -->|"AI 분석"| B[구조 설명<br/>상태/사이드이펙트 정리]
+  B -->|"AI 마이그레이션"| C[Composition API<br/>+ script setup]
+</div>
+
+<h2>AI에게 역할(페르소나)을 부여하라</h2>
+<p>같은 코드라도 AI에게 어떤 관점을 요청하느냐에 따라 완전히 다른 피드백을 받을 수 있다.</p>
+<div class="mermaid">
+graph TD
+  CODE[내 코드] --> P1[비평가]
+  CODE --> P2[설계자]
+  CODE --> P3[QA 엔지니어]
+  CODE --> P4[주니어 개발자]
+  P1 --> R1["취약점, 안티패턴,<br/>성능 병목 지적"]
+  P2 --> R2["구조 개선안,<br/>컴포넌트 분리 제안"]
+  P3 --> R3["엣지케이스,<br/>테스트 시나리오 도출"]
+  P4 --> R4["이해하기 어려운 부분,<br/>가독성 피드백"]
+</div>
+
+<hr>
+
+<h1>04. 라이브 데모</h1>
+<p>상품 리뷰 카드 컴포넌트를 AI와 함께 실시간으로 만들어본다.</p>
+
+<h2>컴포넌트 구조</h2>
+<p>생성된 타입을 기반으로 아래 구조의 ReviewCard.vue를 AI에게 만들도록 요청한다.</p>
+<div class="mermaid">
+graph TD
+  RC[ReviewCard.vue]
+  RC --> AV[Avatar + 이름]
+  RC --> STAR["별점 ★★★★☆"]
+  RC --> BADGE["인증된 구매 뱃지<br/>(verified=true)"]
+  RC --> BODY[제목 + 본문]
+  RC --> IMG["이미지 썸네일<br/>(최대 3개, +N)"]
+  RC --> BTN["도움이 돼요 12"]
+</div>
+
+<hr>
+
+<h1>05. 도입 시 흔한 실패 패턴</h1>
+<p>AI를 도입한 팀에서 자주 듣는 불만 5가지와, 왜 그런 일이 생기는지, 어떻게 해결하는지.</p>
+
+<h2>1. "AI가 만든 코드가 우리 프로젝트랑 안 맞아요"</h2>
+<p>AI는 우리 프로젝트의 컨벤션을 모른다. 프롬프트에 사용할 라이브러리, 기존 컴포넌트, 스타일을 명시하면 결과가 달라진다.</p>
+
+<h2>2. "결국 사람이 다 고쳐야 해요"</h2>
+<p>AI는 초안을 빠르게 만드는 도구이고, 사람은 판단하고 다듬는 역할이다.<br>
+80%를 30초에 받고 20%를 10분에 다듬기 vs 처음부터 100%를 40분에 만들기.</p>
+
+<h2>3. "같은 걸 시켜도 사람마다 결과가 달라요"</h2>
+<p>팀에 공유된 기준이 없으면 같은 요청에도 각자 다른 결과가 나온다. 프로젝트 컨벤션 파일을 AI에 연결하면 해결된다.</p>
+<div class="mermaid">
+graph TD
+  subgraph "컨벤션 없이"
+    A1["개발자 A: 폼 만들어줘"] --> R1[VeeValidate]
+    A2["개발자 B: 폼 만들어줘"] --> R2[FormKit]
+    A3["개발자 C: 폼 만들어줘"] --> R3[직접 v-model]
+  end
+  subgraph "컨벤션 공유 시"
+    B1["개발자 A: 폼 만들어줘"] --> R4[VeeValidate + zod]
+    B2["개발자 B: 폼 만들어줘"] --> R4
+    B3["개발자 C: 폼 만들어줘"] --> R4
+  end
+</div>
+
+<h2>4. "회사 코드가 AI 학습에 쓰이는 거 아닌가요?"</h2>
+<p>유료/엔터프라이즈 플랜은 코드를 학습에 사용하지 않는다. 무료 플랜은 사용될 수 있으므로 업무용은 반드시 유료 플랜.</p>
+
+<h2>5. "한번 써봤는데 별로였어요"</h2>
+<p>최소 2주간 매일 써야 본인만의 활용 패턴이 만들어진다. 작은 것부터 시작하고, 팀 내 주간 공유로 서로의 활용법을 배운다.</p>
+
+
+</body>
+</html>

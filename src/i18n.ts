@@ -170,10 +170,10 @@ const strings: Record<string, Record<Lang, string>> = {
     zh: "需求变更时更新规范",
   },
   "feature_empty_rule": {
-    en: "`.specwriter/features/` is empty.\n\n**Tell AI:** `Read .specwriter/AI_CONTEXT.md and analyze this project. Write feature specs in .specwriter/features/ using this naming: page-01-<name>.md for page features, common-01-<name>.md for shared features, api-01-<name>.md for API features. Number them in order. Include all features of each page in one file.`",
-    ko: "`.specwriter/features/` 폴더가 비어있습니다.\n\n**AI에게 이렇게 말하세요:** `.specwriter/AI_CONTEXT.md 를 읽고 이 프로젝트를 분석해서 .specwriter/features/ 에 기능 명세를 작성해줘. 파일명 규칙: 화면별 기능은 page-01-<이름>.md, 공통 기능은 common-01-<이름>.md, API 기능은 api-01-<이름>.md. 번호순으로 작성하고, 한 화면의 모든 기능은 하나의 파일에 포함해줘.`",
-    ja: "`.specwriter/features/` が空です。\n\n**AIに伝えてください:** `.specwriter/AI_CONTEXT.md を読んでプロジェクトを分析し、.specwriter/features/ に機能仕様を作成してください。命名規則：画面別機能は page-01-<名前>.md、共通機能は common-01-<名前>.md、API機能は api-01-<名前>.md。番号順に作成し、各画面の全機能を1ファイルにまとめてください。`",
-    zh: "`.specwriter/features/` 为空。\n\n**告诉AI:** `读取 .specwriter/AI_CONTEXT.md 并分析项目，在 .specwriter/features/ 中创建功能规范。命名规则：页面功能用 page-01-<名称>.md，公共功能用 common-01-<名称>.md，API功能用 api-01-<名称>.md。按编号排序，每个页面的所有功能放在一个文件中。`",
+    en: "`.specwriter/features/` is empty. Analyze the project code and create feature specs.\n\nNaming: `page-01-<name>.md` for page features, `common-01-<name>.md` for shared features, `api-01-<name>.md` for API features. Number in order. All features of one page go in one file.\n\nEach file must include: feature description, related pages/routes, components used, API endpoints, data flow, edge cases.",
+    ko: "`.specwriter/features/` 폴더가 비어있습니다. 프로젝트 코드를 분석하여 기능 명세를 작성하세요.\n\n파일명 규칙: 화면별 기능은 `page-01-<이름>.md`, 공통 기능은 `common-01-<이름>.md`, API 기능은 `api-01-<이름>.md`. 번호순으로 작성하고, 한 화면의 모든 기능은 하나의 파일에 포함.\n\n각 파일에 포함할 내용: 기능 설명, 관련 페이지/라우트, 사용 컴포넌트, API 엔드포인트, 데이터 흐름, 예외 케이스.",
+    ja: "`.specwriter/features/` が空です。プロジェクトコードを分析し、機能仕様を作成してください。\n\n命名規則: 画面別機能は `page-01-<名前>.md`、共通機能は `common-01-<名前>.md`、API機能は `api-01-<名前>.md`。番号順に作成し、各画面の全機能を1ファイルに。\n\n各ファイルに含む: 機能説明、関連ページ/ルート、使用コンポーネント、APIエンドポイント、データフロー、エッジケース。",
+    zh: "`.specwriter/features/` 为空。分析项目代码并创建功能规范。\n\n命名: 页面功能用 `page-01-<名称>.md`，公共功能用 `common-01-<名称>.md`，API功能用 `api-01-<名称>.md`。按编号排序，每个页面的所有功能放在一个文件中。\n\n每个文件包含: 功能描述、相关页面/路由、使用组件、API端点、数据流、边界情况。",
   },
   "feature_intro": {
     en: "When building a new feature:",

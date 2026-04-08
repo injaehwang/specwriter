@@ -1,48 +1,38 @@
 import path from "node:path";
 import { SpecOutput, AnalysisConfig } from "../types/spec.js";
 import { ComponentInfo } from "../types/component.js";
-import { writeJson, writeMarkdown } from "./index.js";
+import { writeMarkdown } from "./index.js";
 
 export async function generateComponentSpecs(
   spec: SpecOutput,
   outputDir: string,
   config: AnalysisConfig
 ): Promise<void> {
-  const componentsDir = path.join(outputDir, "components");
+  const fs = await import("node:fs/promises");
 
-  // Component index
-  if (config.format === "json" || config.format === "both") {
-    await writeJson(path.join(componentsDir, "_index.json"), {
-      components: spec.components.map((c) => ({
-        name: c.name,
-        type: c.type,
-        filePath: c.filePath,
-        propsCount: c.props.length,
-        stateCount: c.state.length,
-        childrenCount: c.children.length,
-      })),
-      graph: spec.componentGraph,
-    });
+  // Create type-based subdirectories
+  const typeDirs: Record<string, string> = {
+    page: path.join(outputDir, "pages"),
+    layout: path.join(outputDir, "layouts"),
+    component: path.join(outputDir, "components"),
+    hook: path.join(outputDir, "components"),
+    utility: path.join(outputDir, "components"),
+    provider: path.join(outputDir, "components"),
+    hoc: path.join(outputDir, "components"),
+  };
+
+  for (const dir of new Set(Object.values(typeDirs))) {
+    await fs.mkdir(dir, { recursive: true });
   }
 
-  if (config.format === "md" || config.format === "both") {
-    await writeMarkdown(
-      path.join(componentsDir, "_index.md"),
-      buildComponentIndexMarkdown(spec)
-    );
-  }
-
-  // Individual component specs
+  // Write specs to type-appropriate folders
   for (const comp of spec.components) {
     const safeName = sanitizeFileName(comp.name);
-
-    if (config.format === "json" || config.format === "both") {
-      await writeJson(path.join(componentsDir, `${safeName}.json`), comp);
-    }
+    const dir = typeDirs[comp.type] || typeDirs.component;
 
     if (config.format === "md" || config.format === "both") {
       await writeMarkdown(
-        path.join(componentsDir, `${safeName}.md`),
+        path.join(dir, `${safeName}.md`),
         buildComponentMarkdown(comp)
       );
     }
