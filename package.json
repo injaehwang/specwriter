@@ -1,6 +1,6 @@
 {
   "name": "specwriter",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Analyze existing projects and generate comprehensive specifications for AI coding assistants",
   "type": "module",
   "main": "dist/index.js",
@@ -42,7 +42,7 @@
     "node": ">=18.0.0"
   },
   "optionalDependencies": {
-    "specwriter-core-win32-x64": "0.3.2",
+    "specwriter-core-win32-x64": "1.1.0",
     "specwriter-core-darwin-arm64": "0.3.2",
     "specwriter-core-darwin-x64": "0.3.2",
     "specwriter-core-linux-x64": "0.3.2"
