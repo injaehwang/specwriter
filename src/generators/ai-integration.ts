@@ -8,6 +8,7 @@ import { resolveEnvVars } from "../analyzers/env-resolver.js";
 import { inferServiceProfile, detectCodePatterns } from "../analyzers/service-inference.js";
 import { t, type Lang } from "../i18n.js";
 import { analyzeApiPatterns, apiPatternsToMarkdown } from "../analyzers/api-patterns.js";
+import { analyzeTestingPatterns, testingPatternsToMarkdown } from "../analyzers/testing-patterns.js";
 import { detectUiPatterns, uiPatternsToMarkdown } from "../analyzers/ui-patterns.js";
 
 // ─── Marker for detecting specwriter-injected content ───
@@ -233,13 +234,18 @@ async function writeUniversalContext(
   outputDir: string,
   config: AnalysisConfig,
 ): Promise<void> {
-  const { project, components, pageTree } = spec;
+  const { components, pageTree } = spec;
+
+  // Get all deps for testing analysis
+  const allDeps: Record<string, string> = {};
+  for (const lib of spec.project.techStack.otherLibraries) allDeps[lib.name] = lib.version;
 
   const apiPatterns = await analyzeApiPatterns(config.root, components, pageTree.routes);
   const uiPatterns = detectUiPatterns(components);
+  const testingPatterns = await analyzeTestingPatterns(config.root, allDeps);
   const lang = ((config as any)._lang || "en") as Lang;
 
-  const content = buildFullContext(spec, apiPatterns, uiPatterns, lang);
+  const content = buildFullContext(spec, apiPatterns, uiPatterns, testingPatterns, lang);
   await fs.writeFile(path.join(outputDir, "AI_CONTEXT.md"), content);
 }
 
@@ -247,6 +253,7 @@ function buildFullContext(
   spec: SpecOutput,
   apiPatterns: Awaited<ReturnType<typeof analyzeApiPatterns>>,
   uiPatterns: ReturnType<typeof detectUiPatterns>,
+  testingPatterns: Awaited<ReturnType<typeof analyzeTestingPatterns>>,
   lang: Lang = "en",
 ): string {
   const { project, rules, pageTree, components } = spec;
@@ -383,6 +390,12 @@ function buildFullContext(
   // ─── API patterns ───
   if (apiPatterns.endpoints.length > 0 || apiPatterns.apiUtilFile) {
     L.push(apiPatternsToMarkdown(apiPatterns));
+  }
+
+  // ─── Testing patterns ───
+  const testingMd = testingPatternsToMarkdown(testingPatterns, lang);
+  if (testingMd) {
+    L.push(testingMd);
   }
 
   // ─── UI patterns (from actual usage graph, not hardcoded) ───
