@@ -378,14 +378,15 @@ function buildFullContext(
     allRules.push(`File naming: ${rules.naming.files}`);
   }
 
-  if (allRules.length > 0) {
-    L.push(`## ${t("rules", lang)}`);
-    L.push("");
-    for (const rule of allRules) {
-      L.push(`- ${rule}`);
-    }
-    L.push("");
+  // Always add aria/role rule
+  allRules.push(t("aria_rule", lang));
+
+  L.push(`## ${t("rules", lang)}`);
+  L.push("");
+  for (const rule of allRules) {
+    L.push(`- ${rule}`);
   }
+  L.push("");
 
   // ─── API patterns ───
   if (apiPatterns.endpoints.length > 0 || apiPatterns.apiUtilFile) {

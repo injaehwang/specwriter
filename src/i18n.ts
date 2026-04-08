@@ -151,6 +151,12 @@ const strings: Record<string, Record<Lang, string>> = {
     ja: "含む内容：機能説明、ページ、コンポーネント、API、データフロー、エッジケース",
     zh: "包含：功能描述、页面、组件、API端点、数据流、边界情况",
   },
+  "aria_rule": {
+    en: "**IMPORTANT:** Every interactive UI element MUST have a `role`, `aria-label`, or `data-purpose` attribute that describes its function. AI cannot understand the purpose of unnamed elements. Examples: `role=\"menuitem\"`, `role=\"tab\"`, `aria-label=\"Close dialog\"`, `data-purpose=\"user-avatar\"`. This is mandatory for all new code.",
+    ko: "**중요:** 모든 인터랙티브 UI 요소에는 반드시 `role`, `aria-label`, 또는 `data-purpose` 속성을 추가하여 해당 요소의 역할을 명시해야 합니다. 이름 없는 요소는 AI가 용도를 파악할 수 없습니다. 예시: `role=\"menuitem\"`, `role=\"tab\"`, `aria-label=\"대화상자 닫기\"`, `data-purpose=\"사용자-아바타\"`. 모든 새 코드에 필수 적용.",
+    ja: "**重要:** すべてのインタラクティブUI要素には `role`、`aria-label`、または `data-purpose` 属性を追加し、その役割を明示してください。名前のない要素はAIが用途を把握できません。例: `role=\"menuitem\"`, `role=\"tab\"`, `aria-label=\"ダイアログを閉じる\"`. すべての新規コードに必須。",
+    zh: "**重要:** 所有交互式UI元素必须添加 `role`、`aria-label` 或 `data-purpose` 属性来描述其功能。AI无法理解未命名元素的用途。示例: `role=\"menuitem\"`, `role=\"tab\"`, `aria-label=\"关闭对话框\"`. 所有新代码必须遵守。",
+  },
   "feature_rule_3": {
     en: "Implement based on the spec",
     ko: "명세를 기반으로 구현하세요",
