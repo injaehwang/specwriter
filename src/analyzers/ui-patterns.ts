@@ -204,7 +204,7 @@ export function uiPatternsToMarkdown(patterns: UiPattern[]): string {
   if (patterns.length === 0) return "";
 
   const L: string[] = [];
-  L.push("## Patterns");
+  L.push("## Shared Components");
   L.push("");
 
   for (const p of patterns) {

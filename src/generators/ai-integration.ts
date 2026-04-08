@@ -356,36 +356,39 @@ function buildFullContext(
     }
   }
 
-  // ─── Rules for AI (from tooling + code patterns) ───
-  const aiInstructions = toolingToAiInstructions(spec.tooling);
-  const allRules: string[] = [];
+  // ─── Observed patterns (facts, not rules) ───
+  const observedPatterns: string[] = [];
 
-  if (aiInstructions) {
-    for (const line of aiInstructions.split("\n")) {
-      if (line.trim()) allRules.push(line);
-    }
-  }
-
-  // Code pattern rules
   for (const pattern of codePatterns) {
     if (pattern.frequency === "always" || pattern.frequency === "common") {
-      allRules.push(pattern.description);
+      observedPatterns.push(pattern.description);
     }
   }
 
-  // Naming conventions (only if non-obvious)
-  if (rules.naming.files !== "unknown" && rules.naming.files !== "PascalCase") {
-    allRules.push(`File naming: ${rules.naming.files}`);
+  if (rules.naming.files && rules.naming.files !== "unknown") {
+    observedPatterns.push(`File naming: ${rules.naming.files}`);
   }
 
-  // Always add aria/role rule
-  allRules.push(t("aria_rule", lang));
+  const aiInstructions = toolingToAiInstructions(spec.tooling);
+  if (aiInstructions) {
+    for (const line of aiInstructions.split("\n")) {
+      if (line.trim()) observedPatterns.push(line);
+    }
+  }
 
+  if (observedPatterns.length > 0) {
+    L.push(`## ${t("patterns", lang)}`);
+    L.push("");
+    for (const p of observedPatterns) {
+      L.push(`- ${p}`);
+    }
+    L.push("");
+  }
+
+  // ─── Rules (mandatory, not observed) ───
   L.push(`## ${t("rules", lang)}`);
   L.push("");
-  for (const rule of allRules) {
-    L.push(`- ${rule}`);
-  }
+  L.push(`- ${t("aria_rule", lang)}`);
   L.push("");
 
   // ─── API patterns ───
