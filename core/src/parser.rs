@@ -132,9 +132,9 @@ fn parse_vue(file_path: &str, content: &str) -> Vec<ComponentInfo> {
     let children = extract_jsx_children(&template);
 
     vec![ComponentInfo {
-        name,
+        name: name.clone(),
         file_path: file_path.to_string(),
-        component_type: "component".to_string(),
+        component_type: infer_component_type(file_path, &name),
         export_type: "default".to_string(),
         props,
         state,
@@ -584,11 +584,12 @@ fn infer_name_from_path(file_path: &str) -> String {
 
 fn infer_component_type(file_path: &str, name: &str) -> String {
     let p = file_path.to_lowercase().replace('\\', "/");
-    if p.contains("layout.") { return "layout".to_string(); }
-    if p.contains("page.") || p.contains("/pages/") { return "page".to_string(); }
-    if p.contains("/hooks/") || name.starts_with("use") { return "hook".to_string(); }
+    if p.contains("layout.") || p.contains("/layouts/") { return "layout".to_string(); }
+    if p.contains("page.") || p.contains("/pages/") || p.contains("/views/") || p.contains("/screens/") { return "page".to_string(); }
+    if p.contains("/hooks/") || p.contains("/composables/") || name.starts_with("use") { return "hook".to_string(); }
     if p.contains("/providers/") || name.ends_with("Provider") { return "provider".to_string(); }
-    if p.contains("/utils/") || p.contains("/helpers/") { return "utility".to_string(); }
+    if p.contains("/utils/") || p.contains("/helpers/") || p.contains("/lib/") { return "utility".to_string(); }
+    if p.contains("/stores/") || p.contains("/store/") { return "utility".to_string(); }
     "component".to_string()
 }
 

@@ -475,13 +475,13 @@ function inferNameFromPath(filePath: string): string {
 function inferComponentType(filePath: string, name: string): ComponentType {
   const p = filePath.replace(/\\/g, "/").toLowerCase();
 
-  if (p.match(/layout\.[jt]sx?$/)) return "layout";
-  if (p.match(/page\.[jt]sx?$/)) return "page";
-  if (p.includes("/pages/")) return "page";
+  if (p.match(/layout\.[jt]sx?$/) || p.includes("/layouts/")) return "layout";
+  if (p.match(/page\.[jt]sx?$/) || p.includes("/pages/") || p.includes("/views/") || p.includes("/screens/")) return "page";
 
-  if (p.includes("/hooks/") || name.startsWith("use")) return "hook";
+  if (p.includes("/hooks/") || p.includes("/composables/") || name.startsWith("use")) return "hook";
   if (p.includes("/providers/") || name.endsWith("Provider")) return "provider";
   if (p.includes("/hoc/") || name.startsWith("with")) return "hoc";
+  if (p.includes("/stores/") || p.includes("/store/")) return "utility";
   if (p.includes("/utils/") || p.includes("/helpers/") || p.includes("/lib/")) {
     if (!containsJSX(name)) return "utility";
   }

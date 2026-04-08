@@ -3,8 +3,9 @@ import path from "node:path";
 import { DEFAULT_CONFIG, type AnalysisConfig } from "../../types/spec.js";
 import { runAnalysis } from "../../core/analyzer.js";
 
-export const analyzeCommand = new Command("analyze")
-  .description("Analyze a project and generate specifications")
+export const analyzeCommand = new Command("update")
+  .alias("analyze")
+  .description("Re-analyze project and update specifications")
   .argument("[path]", "Path to the project root", ".")
   .option("-o, --output <dir>", "Output directory", DEFAULT_CONFIG.output)
   .option("--framework <name>", "Force framework detection", DEFAULT_CONFIG.framework)

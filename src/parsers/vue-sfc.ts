@@ -28,7 +28,7 @@ export function extractVueComponent(
   return {
     name,
     filePath,
-    type: "component",
+    type: inferVueComponentType(filePath),
     props,
     state,
     events: [],
@@ -236,4 +236,13 @@ function inferNameFromVuePath(filePath: string): string {
     return parts[parts.length - 2] || "Unknown";
   }
   return fileName.replace(/\.vue$/, "");
+}
+
+function inferVueComponentType(filePath: string): "page" | "layout" | "component" | "hook" | "utility" | "provider" | "hoc" {
+  const p = filePath.replace(/\\/g, "/").toLowerCase();
+  if (p.includes("/layouts/") || p.match(/layout\.\w+$/)) return "layout";
+  if (p.includes("/pages/") || p.includes("/views/") || p.includes("/screens/")) return "page";
+  if (p.includes("/composables/") || p.includes("/hooks/")) return "hook";
+  if (p.includes("/stores/") || p.includes("/store/") || p.includes("/utils/") || p.includes("/helpers/")) return "utility";
+  return "component";
 }
